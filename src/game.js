@@ -1,34 +1,685 @@
-export const WEAPONS=[{name:'Machete',damage:5,rate:.32,ammo:null},{name:'Handgun',damage:10,rate:.36,ammo:null},{name:'Shotgun',damage:25,rate:.7,ammo:'shells'},{name:'TEC-DC9',damage:6,rate:.085,ammo:'smg'}];
-export const initialProfile={cash:0,level:1,exp:0,shells:30,smg:180,upgrades:[0,0,0,0],allies:[],best:0};
+import { WEAPONS, HEROES, normalizeProfile } from "./data.js";
+import { Renderer, VIEW } from "./render.js";
+export { WEAPONS } from "./data.js";
+const WORLD_LENGTH = 4200;
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+export function missionForDay(day) {
+  const missions = [
+    { objective: "kills", target: 25, title: "DINO EXTERMINATION" },
+    { objective: "survive", target: 90, title: "HOLD YOUR GROUND" },
+    { objective: "distance", target: 1200, title: "MAKE A RUN FOR IT" },
+    { objective: "eggs", target: 3, title: "EGG SNATCHER" },
+  ];
+  const m = missions[(day - 1) % 4];
+  return {
+    ...m,
+    target:
+      m.objective === "kills"
+        ? m.target + Math.floor((day - 1) / 4) * 10
+        : m.target,
+  };
+}
 export class Game {
- constructor(canvas,profile,onUpdate,onDeath){this.c=canvas;this.ctx=canvas.getContext('2d');this.profile=structuredClone(profile);this.onUpdate=onUpdate;this.onDeath=onDeath;this.x=900;this.hp=100;this.weapon=1;this.kills=0;this.earned=0;this.wave=1;this.waveKills=0;this.time=0;this.spawn=1;this.cool=0;this.inv=0;this.enemies=[];this.bullets=[];this.drops=[];this.particles=[];this.keys={};this.mouse={x:850,y:340,down:false};this.paused=true;this.dead=false;this.camera=360;this.last=0;this.nextHud=0;this.muted=false;this.allyCool=0;this.events=[];this.loop=this.loop.bind(this);this.raf=requestAnimationFrame(this.loop);}
- start(){this.paused=false;this.emit()}
- emit(){this.onUpdate({hp:this.hp,weapon:this.weapon,kills:this.kills,wave:this.wave,waveKills:this.waveKills,target:8+this.wave*2,profile:structuredClone(this.profile),earned:this.earned,time:this.time})}
- destroy(){cancelAnimationFrame(this.raf);this.audio?.close()}
- sound(freq=160){if(this.muted)return;try{this.audio??=new (window.AudioContext||window.webkitAudioContext)();const o=this.audio.createOscillator(),g=this.audio.createGain();o.type='triangle';o.frequency.setValueAtTime(freq,this.audio.currentTime);o.frequency.exponentialRampToValueAtTime(40,this.audio.currentTime+.08);g.gain.setValueAtTime(.035,this.audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,this.audio.currentTime+.1);o.connect(g);g.connect(this.audio.destination);o.start();o.stop(this.audio.currentTime+.1)}catch{}}
- hit(e,damage,knock=18){e.hp-=damage;e.flash=.13;e.x+=Math.sign(e.x-this.x)*knock*(e.type===1?.15:1);this.particles.push({x:e.x,y:365,text:Math.round(damage),life:.6,color:'#fff1be'});if(e.hp<=0&&!e.dead){e.dead=true;this.kills++;this.waveKills++;let reward=[60,350,120][e.type];this.earned+=reward;this.profile.cash+=reward;this.profile.exp+=[20,100,45][e.type];while(this.profile.exp>=this.profile.level*100){this.profile.exp-=this.profile.level*100;this.profile.level++;this.hp=Math.min(100,this.hp+25);this.events.push({text:'LEVEL UP',life:2})}if(Math.random()<.38)this.drops.push({x:e.x,type:Math.random()<.45?'health':'ammo',life:15});if(this.waveKills>=8+this.wave*2){this.wave++;this.waveKills=0;this.hp=Math.min(100,this.hp+15);this.events.push({text:'WAVE '+this.wave,life:2.5})}}}
- shoot(){const w=WEAPONS[this.weapon];if(this.cool>0)return;if(w.ammo&&this.profile[w.ammo]<=0){this.cool=.3;return}this.cool=w.rate;if(w.ammo)this.profile[w.ammo]--;this.sound(this.weapon===2?90:240);const angle=Math.atan2(this.mouse.y-359,this.mouse.x-(this.x-this.camera));const damage=w.damage+this.profile.upgrades[this.weapon]*2;if(this.weapon===0){this.slash=.18;this.enemies.filter(e=>Math.abs(e.x-this.x)<100).forEach(e=>this.hit(e,damage,40))}else {let count=this.weapon===2?3:1;for(let i=0;i<count;i++){let a=angle+(i-(count-1)/2)*.12;this.bullets.push({x:this.x+Math.cos(a)*28,y:359,vx:Math.cos(a)*850,vy:Math.sin(a)*850,damage:damage/count,life:1.3,acid:false,knock:this.weapon===2?55:14})}}}
- update(dt){this.time+=dt;this.cool-=dt;this.inv-=dt;this.slash=Math.max(0,(this.slash||0)-dt);const move=(this.keys.d||this.keys.ArrowRight?1:0)-(this.keys.a||this.keys.ArrowLeft?1:0);this.x=Math.max(80,Math.min(2920,this.x+move*230*dt));this.facing=this.mouse.x>this.x-this.camera?1:-1;this.camera+=(Math.max(0,Math.min(1920,this.x-540))-this.camera)*Math.min(1,dt*6);if(this.mouse.down)this.shoot();this.spawn-=dt;if(this.spawn<=0&&this.enemies.length<16){const type=this.wave===1?(Math.random()<.18?2:0):Math.random()<.22?1:Math.random()<.3?2:0;const side=Math.random()<.5?-1:1;this.enemies.push({x:Math.max(30,Math.min(2970,this.x+side*(580+Math.random()*160))),type,hp:[20,150,50][type],max:[20,150,50][type],cool:1.2,flash:0});this.spawn=Math.max(.45,2.1-this.wave*.13)}
- for(const e of this.enemies){e.flash-=dt;e.cool-=dt;const dist=this.x-e.x;const speed=[105,42,65][e.type];if(Math.abs(dist)>(e.type===2?250:38))e.x+=Math.sign(dist)*speed*dt*(e.type===0&&Math.abs(dist)<150?1.9:1);if(e.cool<=0){if(e.type===2&&Math.abs(dist)<640){const a=Math.atan2(-10,dist);this.bullets.push({x:e.x,y:349,vx:Math.cos(a)*240,vy:Math.sin(a)*240,damage:12,life:3,acid:true});e.cool=2.2}else if(Math.abs(dist)<60){if(this.inv<=0){this.hp-=[10,35,12][e.type];this.inv=.6;this.x=Math.max(80,Math.min(2920,this.x+Math.sign(dist)*30));this.sound(65)}e.cool=1}}}
- for(const b of this.bullets){b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.acid){if(Math.abs(b.x-this.x)<22&&Math.abs(b.y-360)<35&&this.inv<=0){this.hp-=b.damage;this.inv=.6;b.life=0}}else{const e=this.enemies.find(e=>!e.dead&&Math.abs(e.x-b.x)<(e.type===1?52:29)&&b.y>310-(e.type===1?45:0)&&b.y<407);if(e){this.hit(e,b.damage,b.knock);b.life=0}}}
- this.allyCool-=dt;if(this.allyCool<=0&&this.profile.allies.length){for(const ally of this.profile.allies){const e=this.enemies.find(e=>!e.dead&&Math.abs(e.x-this.x)<(ally==='Soldier'?550:140));if(e){this.hit(e,ally==='Soldier'?12:18,20);this.bullets.push({x:this.x-50,y:360,vx:Math.sign(e.x-this.x)*850,vy:0,damage:0,life:.2,acid:false})}}this.allyCool=.7}
- this.enemies=this.enemies.filter(e=>!e.dead);this.bullets=this.bullets.filter(b=>b.life>0&&b.y<420);for(const d of this.drops){d.life-=dt;if(Math.abs(this.x-d.x)<35){if(d.type==='health')this.hp=Math.min(100,this.hp+25);else{this.profile.shells+=8;this.profile.smg+=40}d.life=0;this.sound(600)}}this.drops=this.drops.filter(d=>d.life>0);this.particles.forEach(p=>{p.life-=dt;p.y-=40*dt});this.particles=this.particles.filter(p=>p.life>0);this.events.forEach(e=>e.life-=dt);this.events=this.events.filter(e=>e.life>0);if(this.hp<=0){this.hp=0;this.dead=true;this.paused=true;this.profile.best=Math.max(this.profile.best,this.kills);this.emit();this.onDeath(this.profile)}if(this.time>this.nextHud){this.nextHud=this.time+.1;this.emit()}}
- loop(t){const dt=Math.min(.035,(t-this.last)/1000||0);this.last=t;if(!this.paused&&!this.dead)this.update(dt);this.draw(t/1000);this.raf=requestAnimationFrame(this.loop)}
- draw(t){const c=this.ctx;const rect=this.c.getBoundingClientRect();const dpr=Math.min(devicePixelRatio,2);if(this.c.width!==Math.round(rect.width*dpr)||this.c.height!==Math.round(rect.height*dpr)){this.c.width=rect.width*dpr;this.c.height=rect.height*dpr}c.setTransform(this.c.width/1080,0,0,this.c.height/500,0,0);const g=c.createLinearGradient(0,0,0,500);g.addColorStop(0,'#123c37');g.addColorStop(.55,'#729c6c');g.addColorStop(1,'#132d25');c.fillStyle=g;c.fillRect(0,0,1080,500);
- // distant mist, mountains, and warm shafts of sunlight
- const glow=c.createRadialGradient(730,150,10,730,150,480);glow.addColorStop(0,'#cedbaa70');glow.addColorStop(1,'#83bb9600');c.fillStyle=glow;c.fillRect(0,0,1080,400);
- for(let layer=0;layer<3;layer++){const offset=this.camera*(.12+layer*.14);c.fillStyle=['#244f4780','#245346','#123e32'][layer];for(let i=-2;i<18;i++){const x=i*110-offset%(110)+Math.sin(i*8)*30;const w=18+layer*8; c.beginPath();c.moveTo(x-35,410);c.bezierCurveTo(x+20,270,x+5,120,x-10,-20);c.lineTo(x+w,-20);c.bezierCurveTo(x+w-10,170,x+w+35,300,x+w+60,410);c.fill();for(let j=0;j<4;j++){c.beginPath();c.ellipse(x+(j-2)*48,30+j*28,90,35,j*.7,0,Math.PI*2);c.fill()}}}
- c.fillStyle='#bbd8a00b';for(let i=0;i<5;i++){c.beginPath();c.moveTo(620+i*75,0);c.lineTo(200+i*170,400);c.lineTo(280+i*170,400);c.lineTo(655+i*75,0);c.fill()}
- // hanging vines
- c.strokeStyle='#17372b';c.lineWidth=4;for(let i=0;i<11;i++){const x=i*122-this.camera*.23%122;c.beginPath();c.moveTo(x,0);c.bezierCurveTo(x-50,60,x+60,100,x+18,200+(i%3)*40);c.stroke()}
- for(let i=-1;i<25;i++){const x=i*56-this.camera*.5%56;this.leaf(x,385,30+(i%4)*12,-.7,'#22543b');this.leaf(x+10,385,38,.5,'#39754d')}
- c.fillStyle='#5c7743';c.beginPath();c.moveTo(0,402);for(let x=0;x<=1080;x+=20)c.lineTo(x,398+Math.sin((x+this.camera)*.018)*4);c.lineTo(1080,500);c.lineTo(0,500);c.fill();c.fillStyle='#abc075';c.fillRect(0,403,1080,4);c.fillStyle='#354e32';c.fillRect(0,430,1080,70);
- for(let i=0;i<80;i++){let x=(i*71-this.camera*.9)%1100;c.fillStyle=i%3?'#a5a56550':'#20382b';c.beginPath();c.ellipse(x,418+(i%4)*9,3+i%5,1.5,0,0,7);c.fill()}
- if(this.paused&&!this.dead&&this.time===0){this.dino(800,401,1,-1,0,t);this.dino(650,401,0,-1,0,t);this.dino(960,401,2,-1,0,t);this.person(465,400,1,t,1)}else{for(const d of this.drops){const x=d.x-this.camera;c.save();c.shadowColor=d.type==='health'?'#a0ff6b':'#ffd56b';c.shadowBlur=20;c.fillStyle=d.type==='health'?'#ecedca':'#c99540';c.fillRect(x-12,379+Math.sin(t*4)*3,24,20);c.fillStyle=d.type==='health'?'#e15344':'#493b1d';c.font='bold 20px sans-serif';c.fillText(d.type==='health'?'+':'≡',x-7,397+Math.sin(t*4)*3);c.restore()}this.enemies.forEach(e=>{this.dino(e.x-this.camera,401,e.type,Math.sign(this.x-e.x),e.flash,t);if(e.hp<e.max){c.fillStyle='#202c20';c.fillRect(e.x-this.camera-23,291,46,4);c.fillStyle='#f5a854';c.fillRect(e.x-this.camera-23,291,46*e.hp/e.max,4)}});this.profile.allies.forEach((a,i)=>this.person(this.x-this.camera-55-i*42,400,this.facing,t,a==='Soldier'?3:0));c.globalAlpha=this.inv>0&&Math.floor(t*15)%2?.45:1;this.person(this.x-this.camera,400,this.facing,t,this.weapon);c.globalAlpha=1;if(this.slash){c.strokeStyle='#fff5c8';c.lineWidth=5;c.beginPath();c.arc(this.x-this.camera,357,70,-1.4,1.4);c.stroke()}for(const b of this.bullets){c.fillStyle=b.acid?'#b3f05b':'#ffeab0';c.beginPath();c.ellipse(b.x-this.camera,b.y,b.acid?7:7,b.acid?7:2,Math.atan2(b.vy,b.vx),0,7);c.fill()}for(const p of this.particles){c.globalAlpha=p.life/.6;c.fillStyle=p.color;c.font='bold 19px sans-serif';c.fillText(p.text,p.x-this.camera,p.y);c.globalAlpha=1}}
- // foreground foliage frames the scene
- for(let i=-1;i<19;i++){let x=i*72-this.camera*.75%72;this.leaf(x,510,65+(i%3)*15,-.8,'#102c22');this.leaf(x+5,510,75,.6,'#173b29');this.leaf(x+5,512,50,.15,'#294c32')}
- for(let i=0;i<22;i++){c.fillStyle='#ecedaa';c.globalAlpha=.25+Math.sin(t+i)*.2;c.beginPath();c.arc((i*137+Math.sin(t*.3+i)*20)%1080,90+(i*71)%280,1.5,0,7);c.fill()}c.globalAlpha=1;if(!this.paused){c.strokeStyle='#fff5bb';c.lineWidth=1;c.beginPath();c.arc(this.mouse.x,this.mouse.y,9,0,7);c.moveTo(this.mouse.x-14,this.mouse.y);c.lineTo(this.mouse.x+14,this.mouse.y);c.moveTo(this.mouse.x,this.mouse.y-14);c.lineTo(this.mouse.x,this.mouse.y+14);c.stroke()}if(this.events.length){c.textAlign='center';c.font='900 38px sans-serif';c.fillStyle='#f5d989';c.fillText(this.events[0].text,540,190);c.textAlign='left'}}
- leaf(x,y,size,angle,color){let c=this.ctx;c.save();c.translate(x,y);c.rotate(angle);c.fillStyle=color;c.beginPath();c.moveTo(0,0);c.quadraticCurveTo(-size*.35,-size*.65,0,-size);c.quadraticCurveTo(size*.5,-size*.45,0,0);c.fill();c.strokeStyle='#a1b96c22';c.lineWidth=1;c.beginPath();c.moveTo(0,0);c.lineTo(0,-size);c.stroke();c.restore()}
- person(x,y,dir,t,weapon){const c=this.ctx;c.save();c.translate(x,y);c.scale(dir||1,1);c.lineWidth=3;c.strokeStyle='#14221c';const box=(x,y,w,h,color)=>{c.fillStyle=color;c.beginPath();c.roundRect(x,y,w,h,4);c.fill();c.stroke()};c.fillStyle='#0a241a66';c.beginPath();c.ellipse(0,0,28,5,0,0,7);c.fill();let step=this.paused?0:Math.sin(t*12)*3;box(-18,-19,14,18+step,'#373e2c');box(3,-19,14,18-step,'#373e2c');box(-19,-6+step,18,7,'#1b2823');box(1,-6-step,20,7,'#1b2823');box(-19,-44,37,29,'#a99a67');box(-8,-43,18,25,'#5b6b42');box(-22,-80,44,40,'#dfa776');c.fillStyle='#242d24';c.beginPath();c.ellipse(0,-79,25,13,0,Math.PI,Math.PI*2);c.lineTo(24,-70);c.lineTo(-24,-70);c.fill();box(-24,-74,47,8,'#dc7147');c.fillStyle='#101e1b';c.beginPath();c.ellipse(11,-57,4,5,0,0,7);c.fill();c.fillStyle='#fff0cd';c.fillRect(10,-59,2,2);c.strokeStyle='#8d523f';c.beginPath();c.moveTo(6,-47);c.lineTo(15,-47);c.stroke();box(7,-42,24,11,'#dfa776');if(weapon===0){box(25,-64,7,35,'#bdc7ae')}else{box(23,-43,weapon===2?40:weapon===3?32:24,10,'#26352d');box(24,-33,8,12,'#2b352b');c.fillStyle='#81927d';c.fillRect(28,-42,18,3)}c.restore()}
- dino(x,y,type,dir,flash,t){const c=this.ctx;c.save();c.translate(x,y);const s=type===1?1.7:type===2?1.12:.85;c.scale(s*(dir||1),s);c.lineWidth=3;c.strokeStyle='#112a22';const color=flash>0?'#eb6452':['#acb765','#768b4a','#5f9ca2'][type];c.fillStyle='#0a241a55';c.beginPath();c.ellipse(0,0,40,4,0,0,7);c.fill();c.fillStyle=color;c.beginPath();c.moveTo(-15,-22);c.quadraticCurveTo(-65,-18,-75,-53);c.quadraticCurveTo(-38,-33,-20,-40);c.bezierCurveTo(-15,-70,30,-69,31,-40);c.quadraticCurveTo(37,-15,7,-16);c.closePath();c.fill();c.stroke();c.beginPath();c.roundRect(8,-75,49,35,10);c.fill();c.stroke();c.fillStyle=type===2?'#b1d6be':'#d0cf8a';c.beginPath();c.ellipse(9,-33,14,16,.5,0,7);c.fill();c.fillStyle=color;let step=Math.sin(t*8+x)*4;for(let i=0;i<2;i++){c.beginPath();c.moveTo(-11+i*24,-22);c.lineTo(-18+i*25,-3+step*(i?1:-1));c.lineTo(1+i*25,-3+step*(i?1:-1));c.lineTo(4+i*16,-20);c.fill();c.stroke()}c.fillStyle='#d9b46c';for(let i=0;i<5;i++){c.beginPath();c.moveTo(-28+i*9,-40-i*3);c.lineTo(-24+i*9,-57-i*2);c.lineTo(-18+i*9,-41-i*3);c.fill();c.stroke()}c.fillStyle='#f7ebc0';c.beginPath();c.ellipse(41,-62,7,8,0,0,7);c.fill();c.fillStyle='#17281f';c.beginPath();c.ellipse(44,-62,3,5,0,0,7);c.fill();c.strokeStyle='#112a22';c.beginPath();c.moveTo(30,-48);c.lineTo(57,-48);c.stroke();c.fillStyle='#faf1d5';for(let i=0;i<4;i++){c.beginPath();c.moveTo(32+i*6,-47);c.lineTo(35+i*6,-40);c.lineTo(38+i*6,-47);c.fill()}c.restore()}
+  constructor(canvas, profile, onUpdate, onFinish, onShop) {
+    this.canvas = canvas;
+    this.renderer = new Renderer(canvas);
+    this.profile = normalizeProfile(profile);
+    this.onUpdate = onUpdate;
+    this.onFinish = onFinish;
+    this.onShop = onShop;
+    this.status = "menu";
+    this.edition = this.profile.edition;
+    this.hero = this.profile.hero;
+    this.biome = "jungle";
+    this.mode = "arena";
+    this.objective = "endless";
+    this.target = 0;
+    this.x = 980;
+    this.camera = 480;
+    this.facing = 1;
+    this.maxHp = 100;
+    this.hp = 100;
+    this.weapon = 1;
+    this.keys = {};
+    this.mouse = { x: 800, y: 382, down: false };
+    this.touchAim = false;
+    this.inventory = [...this.profile.unlocked];
+    this.enemies = [];
+    this.bullets = [];
+    this.drops = [];
+    this.particles = [];
+    this.corpses = [];
+    this.events = [];
+    this.eggs = [];
+    this.allyUnits = [];
+    this.wave = 1;
+    this.waveKills = 0;
+    this.kills = 0;
+    this.earned = 0;
+    this.time = 0;
+    this.distance = 0;
+    this.collectedEggs = 0;
+    this.cool = 0;
+    this.specialCool = 0;
+    this.meleeHeld = false;
+    this.inv = 0;
+    this.attack = 0;
+    this.swingWeapon = null;
+    this.muzzle = 0;
+    this.spawn = 1.5;
+    this.pickupTimer = 6;
+    this.nextHud = 0;
+    this.last = 0;
+    this.muted = false;
+    this.destroyed = false;
+    this.interactCool = 0;
+    this.frame = this.frame.bind(this);
+    this.raf = requestAnimationFrame(this.frame);
+  }
+  configure({
+    edition = this.edition,
+    hero = this.hero,
+    biome = this.biome,
+    mode = this.mode,
+    objective = "endless",
+    target = 0,
+  }) {
+    this.edition = edition;
+    this.hero = edition === "classic" ? "kid" : hero;
+    this.biome = biome;
+    this.mode = mode;
+    this.objective = objective;
+    this.target = target;
+    this.renderer.prepare(biome);
+    if (this.status === "menu") {
+      const w = HEROES.find((h) => h.id === this.hero)?.weapon ?? 1;
+      this.weapon = this.inventory.includes(w) ? w : 1;
+    }
+  }
+  start() {
+    this.maxHp = 100 + (this.profile.heroUpgrades[this.hero] || 0) * 10;
+    this.hp = this.maxHp;
+    this.x =
+      this.objective === "distance" || this.objective === "eggs" ? 250 : 980;
+    this.camera = clamp(this.x - 480, 0, WORLD_LENGTH - VIEW.width);
+    this.allyUnits = this.profile.allies.map((id, i) => ({
+      id,
+      x: this.x - 65 - i * 45,
+      cool: 0,
+    }));
+    this.eggs = [850, 1950, 3050].map((x) => ({ x, collected: false }));
+    this.status = "playing";
+    this.events = [
+      {
+        text:
+          this.mode === "blitz"
+            ? "JUNGLE BLITZ"
+            : this.objective === "endless"
+              ? "WAVE 1"
+              : "DAY " + this.profile.day,
+        life: 2,
+      },
+    ];
+    this.emit();
+  }
+  pause() {
+    if (this.status === "playing") {
+      this.status = "paused";
+      this.releaseInputs();
+      this.emit();
+    }
+  }
+  resume(profile) {
+    if (profile) this.syncProfile(profile);
+    this.status = "playing";
+    this.last = 0;
+    this.emit();
+  }
+  syncProfile(profile) {
+    this.profile = normalizeProfile(profile);
+    this.inventory = [
+      ...new Set([...this.inventory, ...this.profile.unlocked]),
+    ];
+    this.maxHp = 100 + (this.profile.heroUpgrades[this.hero] || 0) * 10;
+    for (const id of this.profile.allies)
+      if (!this.allyUnits.some((a) => a.id === id))
+        this.allyUnits.push({ id, x: this.x - 80, cool: 0 });
+  }
+  releaseInputs() {
+    this.keys = {};
+    this.mouse.down = false;
+    this.meleeHeld = false;
+  }
+  destroy() {
+    this.destroyed = true;
+    cancelAnimationFrame(this.raf);
+    this.audio?.close();
+  }
+  cycle(direction) {
+    const current = this.inventory.indexOf(this.weapon);
+    this.weapon =
+      this.inventory[
+        (current + direction + this.inventory.length) % this.inventory.length
+      ];
+    this.emit();
+  }
+  select(index) {
+    if (this.inventory.includes(index)) {
+      this.weapon = index;
+      this.emit();
+    }
+  }
+  emit() {
+    this.onUpdate({
+      hp: this.hp,
+      maxHp: this.maxHp,
+      weapon: this.weapon,
+      inventory: [...this.inventory],
+      kills: this.kills,
+      wave: this.wave,
+      waveKills: this.waveKills,
+      waveTarget: 10 + this.wave * 2,
+      profile: structuredClone(this.profile),
+      earned: this.earned,
+      time: this.time,
+      distance: this.distance,
+      eggs: this.collectedEggs,
+      progress: this.progress(),
+      objective: this.objective,
+      target: this.target,
+      specialCool: this.specialCool,
+      nearShop: this.mode === "city" && Math.abs(this.x - 1050) < 90,
+    });
+  }
+  progress() {
+    return this.objective === "kills"
+      ? this.kills
+      : this.objective === "survive"
+        ? this.time
+        : this.objective === "distance"
+          ? this.distance
+          : this.objective === "eggs"
+            ? this.collectedEggs
+            : this.waveKills;
+  }
+  sound(kind = "shot") {
+    if (this.muted) return;
+    try {
+      this.audio ??= new (window.AudioContext || window.webkitAudioContext)();
+      if (this.audio.state === "suspended") this.audio.resume();
+      const o = this.audio.createOscillator(),
+        g = this.audio.createGain(),
+        now = this.audio.currentTime;
+      o.type =
+        kind === "pickup" ? "sine" : kind === "shot" ? "sawtooth" : "triangle";
+      o.frequency.setValueAtTime(
+        kind === "pickup" ? 740 : kind === "hurt" ? 100 : 230,
+        now,
+      );
+      o.frequency.exponentialRampToValueAtTime(
+        kind === "pickup" ? 1100 : 45,
+        now + 0.1,
+      );
+      g.gain.setValueAtTime(0.028, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+      o.connect(g);
+      g.connect(this.audio.destination);
+      o.start();
+      o.stop(now + 0.14);
+    } catch {}
+  }
+  particle(x, y, text, color = "#ffe664") {
+    this.particles.push({
+      x,
+      y,
+      text,
+      life: 0.8,
+      color,
+      size: 3,
+      vx: 0,
+      vy: -35,
+    });
+  }
+  hurt(damage, from) {
+    if (this.inv > 0 || this.status !== "playing") return;
+    this.hp = clamp(this.hp - damage, 0, this.maxHp);
+    this.inv = 0.7;
+    this.x = clamp(
+      this.x + Math.sign(this.x - from) * 28,
+      45,
+      WORLD_LENGTH - 45,
+    );
+    this.sound("hurt");
+    this.particle(this.x, 326, "−" + damage, "#ff5341");
+  }
+  hit(enemy, damage, knock = 25, from = this.x) {
+    if (enemy.dead) return;
+    enemy.hp -= damage;
+    enemy.flash = 0.14;
+    enemy.vx =
+      (enemy.vx || 0) +
+      Math.sign(enemy.x - from) * knock * (enemy.type === 1 ? 0.16 : 1);
+    this.particle(
+      enemy.x,
+      enemy.type === 1 ? 270 : 320,
+      String(Math.round(damage)),
+      "#fff1ca",
+    );
+    if (enemy.hp <= 0) {
+      enemy.dead = true;
+      this.kills++;
+      this.waveKills++;
+      const cash = [60, 350, 120][enemy.type];
+      this.earned += cash;
+      this.profile.cash += cash;
+      this.profile.exp += [20, 100, 45][enemy.type];
+      this.corpses.push({ x: enemy.x, type: enemy.type });
+      if (this.corpses.length > 50) this.corpses.shift();
+      for (let i = 0; i < 8; i++)
+        this.particles.push({
+          x: enemy.x,
+          y: 380,
+          text: null,
+          color: i % 3 ? "#d74736" : "#e9dec9",
+          life: 0.7 + Math.random() * 0.4,
+          size: 2 + Math.random() * 3,
+          vx: (Math.random() - 0.5) * 150,
+          vy: -50 - Math.random() * 100,
+        });
+      this.particle(enemy.x, 303, "+$" + cash);
+      while (this.profile.exp >= this.profile.level * 100) {
+        this.profile.exp -= this.profile.level * 100;
+        this.profile.level++;
+        this.hp = Math.min(this.maxHp, this.hp + 25);
+        this.events.push({ text: "LEVEL UP!", life: 2 });
+      }
+      if (Math.random() < 0.43)
+        this.drops.push({
+          x: enemy.x,
+          type: Math.random() < 0.5 ? "health" : "ammo",
+          life: 18,
+        });
+      if (this.waveKills >= 10 + this.wave * 2) {
+        this.wave++;
+        this.waveKills = 0;
+        if (this.objective === "endless") {
+          this.hp = Math.min(this.maxHp, this.hp + 15);
+          this.events.push({ text: "WAVE " + this.wave, life: 2 });
+        }
+      }
+    }
+  }
+  quickMelee() {
+    if (this.cool > 0) return;
+    this.cool = 0.32;
+    this.attack = 0.2;
+    const index = this.hero === "knight" ? 25 : this.hero === "girl" ? 28 : 0;
+    const w = WEAPONS[index];
+    this.swingWeapon = index;
+    this.enemies
+      .filter(
+        (e) =>
+          Math.abs(e.x - this.x) < w.range &&
+          (e.x - this.x) * this.facing > -20,
+      )
+      .forEach((e) =>
+        this.hit(e, w.damage + this.profile.upgrades[index] * 2, 190),
+      );
+    this.sound();
+  }
+  special() {
+    if (this.edition !== "sequel") return;
+    if (this.specialCool > 0 || this.status !== "playing") return;
+    if (this.profile.ammo.energy < 3) {
+      this.particle(this.x, 320, "NO ENERGY", "#ffad73");
+      return;
+    }
+    this.profile.ammo.energy -= 3;
+    this.specialCool = 3;
+    this.attack = 0.3;
+    this.events.push({
+      text:
+        this.hero === "ninja"
+          ? "NINJA STRIKE!"
+          : this.hero === "girl"
+            ? "CRATE SMASH!"
+            : "FORCE BLAST!",
+      life: 0.65,
+    });
+    this.enemies
+      .filter((e) => Math.abs(e.x - this.x) < 280)
+      .forEach((e) => this.hit(e, 45, 330));
+    this.sound("pickup");
+    this.emit();
+  }
+  attackPlayer() {
+    const w = WEAPONS[this.weapon];
+    if (this.cool > 0) return;
+    if (w.ammo && this.profile.ammo[w.ammo] <= 0) {
+      this.cool = 0.25;
+      this.particle(this.x, 320, "NO AMMO", "#f88965");
+      return;
+    }
+    this.cool = w.rate;
+    this.attack = 0.2;
+    this.swingWeapon = w.family === "melee" ? this.weapon : null;
+    if (w.ammo) this.profile.ammo[w.ammo]--;
+    this.sound();
+    const damage = w.damage + this.profile.upgrades[this.weapon] * 2;
+    if (w.family === "melee") {
+      this.enemies
+        .filter(
+          (e) =>
+            Math.abs(e.x - this.x) < w.range &&
+            (e.x - this.x) * this.facing > -20,
+        )
+        .forEach((e) => this.hit(e, damage, 180));
+      return;
+    }
+    this.muzzle = 0.065;
+    const angle = this.touchAim
+      ? this.facing === 1
+        ? 0
+        : Math.PI
+      : Math.atan2(this.mouse.y - 382, this.mouse.x - (this.x - this.camera));
+    const count = w.family === "shotgun" ? 3 : 1;
+    for (let i = 0; i < count; i++) {
+      let a = angle + (i - (count - 1) / 2) * 0.115;
+      const speed =
+        w.family === "flame" ? 410 : w.family === "launcher" ? 520 : 900;
+      this.bullets.push({
+        x: this.x + Math.cos(a) * 45,
+        y: 382,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        damage: damage / count,
+        life: w.family === "flame" ? 0.4 : 1.7,
+        acid: false,
+        family: w.family,
+        knock: w.family === "shotgun" ? 200 : 35,
+        owner: "player",
+      });
+    }
+  }
+  spawnEnemy() {
+    const type =
+      this.time < 8
+        ? 0
+        : Math.random() < Math.min(0.26, 0.07 + this.wave * 0.025)
+          ? 1
+          : Math.random() < 0.35
+            ? 2
+            : 0;
+    let x =
+      this.x + (Math.random() < 0.5 ? -1 : 1) * (620 + Math.random() * 130);
+    if (x < 45) x = this.x + 660;
+    if (x > WORLD_LENGTH - 45) x = this.x - 660;
+    const max =
+      [20, 150, 50][type] * (this.wave > 5 ? 1 + (this.wave - 5) * 0.06 : 1);
+    this.enemies.push({
+      x: clamp(x, 35, WORLD_LENGTH - 35),
+      type,
+      hp: max,
+      max,
+      cool: 1.4,
+      flash: 0,
+      attack: 0,
+      vx: 0,
+      dead: false,
+      armored:
+        this.edition === "sequel" && this.wave >= 2 && Math.random() < 0.4,
+    });
+  }
+  collect(d) {
+    if (d.type === "health") {
+      this.hp = Math.min(this.maxHp, this.hp + 25);
+      this.particle(this.x, 330, "+25 HP", "#b2f592");
+    } else if (d.type === "weapon") {
+      if (!this.inventory.includes(d.weapon)) this.inventory.push(d.weapon);
+      this.weapon = d.weapon;
+      const w = WEAPONS[d.weapon];
+      if (w.ammo) this.profile.ammo[w.ammo] += w.family === "launcher" ? 6 : 45;
+      this.particle(this.x, 330, w.name.toUpperCase(), "#ffd465");
+    } else {
+      this.profile.ammo.shells += 8;
+      this.profile.ammo.smg += 40;
+      this.profile.ammo.rifle += 30;
+      this.profile.ammo.energy += 20;
+      this.particle(this.x, 330, "AMMO +", "#ffd465");
+    }
+    d.life = 0;
+    this.sound("pickup");
+  }
+  update(dt) {
+    this.time += dt;
+    this.cool -= dt;
+    this.specialCool = Math.max(0, this.specialCool - dt);
+    this.inv -= dt;
+    this.attack = Math.max(0, this.attack - dt);
+    this.muzzle = Math.max(0, this.muzzle - dt);
+    this.interactCool -= dt;
+    const move =
+      (this.keys.d || this.keys.ArrowRight ? 1 : 0) -
+      (this.keys.a || this.keys.ArrowLeft ? 1 : 0);
+    this.moving = !!move;
+    const before = this.x;
+    this.x = clamp(
+      this.x + move * (this.hero === "ninja" ? 260 : 230) * dt,
+      45,
+      WORLD_LENGTH - 45,
+    );
+    this.distance += Math.abs(this.x - before);
+    if (this.touchAim && move) this.facing = move;
+    else if (!this.touchAim)
+      this.facing = this.mouse.x > this.x - this.camera ? 1 : -1;
+    this.camera +=
+      (clamp(this.x - 480, 0, WORLD_LENGTH - VIEW.width) - this.camera) *
+      Math.min(1, dt * 7);
+    if (this.meleeHeld || this.keys.j) this.quickMelee();
+    else if (this.mouse.down || this.keys[" "] || this.keys.k)
+      this.attackPlayer();
+    if (
+      this.mode === "city" &&
+      this.keys.f &&
+      this.interactCool <= 0 &&
+      Math.abs(this.x - 1050) < 90
+    ) {
+      this.interactCool = 1;
+      this.pause();
+      this.onShop?.();
+      return;
+    }
+    this.spawn -= dt;
+    if (this.spawn <= 0 && this.enemies.length < 18) {
+      this.spawnEnemy();
+      this.spawn = Math.max(0.4, 1.9 - this.wave * 0.11);
+    }
+    this.pickupTimer -= dt;
+    if (this.pickupTimer <= 0) {
+      this.pickupTimer = this.mode === "blitz" ? 8 : 18;
+      this.drops.push({
+        x: clamp(this.x + (Math.random() - 0.5) * 600, 60, WORLD_LENGTH - 60),
+        type: this.mode === "blitz" ? "weapon" : "ammo",
+        weapon: 1 + Math.floor(Math.random() * 24),
+        life: 20,
+      });
+    }
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      e.flash = Math.max(0, e.flash - dt);
+      e.attack = Math.max(0, e.attack - dt);
+      e.cool -= dt;
+      e.x = clamp(e.x + (e.vx || 0) * dt, 30, WORLD_LENGTH - 30);
+      e.vx *= Math.max(0, 1 - dt * 9);
+      const dist = this.x - e.x,
+        speed = [107, 44, 72][e.type];
+      if (Math.abs(dist) > (e.type === 2 ? 280 : e.type === 1 ? 73 : 47))
+        e.x +=
+          Math.sign(dist) *
+          speed *
+          dt *
+          (e.type === 0 && Math.abs(dist) < 160 ? 1.85 : 1);
+      if (e.cool <= 0) {
+        if (e.type === 2 && Math.abs(dist) < 680) {
+          const a = Math.atan2(4, dist);
+          this.bullets.push({
+            x: e.x + Math.sign(dist) * 45,
+            y: 378,
+            vx: Math.cos(a) * 250,
+            vy: Math.sin(a) * 250,
+            damage: 12,
+            life: 3,
+            acid: true,
+          });
+          e.cool = 2.3;
+          e.attack = 0.3;
+        } else if (Math.abs(dist) < (e.type === 1 ? 90 : 65)) {
+          this.hurt([10, 35, 12][e.type], e.x);
+          e.cool = e.type === 1 ? 1.4 : 0.95;
+          e.attack = 0.4;
+        }
+      }
+    }
+    for (const b of this.bullets) {
+      const previous = b.x;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+      const crossed = (x) =>
+        x >= Math.min(previous, b.x) - 20 && x <= Math.max(previous, b.x) + 20;
+      if (b.acid) {
+        if (crossed(this.x) && Math.abs(b.y - 380) < 45 && this.inv <= 0) {
+          this.hurt(b.damage, b.x - Math.sign(b.vx) * 20);
+          b.life = 0;
+        }
+      } else {
+        const e = this.enemies.find(
+          (e) =>
+            !e.dead &&
+            crossed(e.x) &&
+            b.y > 430 - (e.type === 1 ? 175 : 110) &&
+            b.y < 435,
+        );
+        if (e) {
+          this.hit(e, b.damage, b.knock || 30, b.x - Math.sign(b.vx) * 30);
+          if (b.family === "launcher") {
+            this.enemies
+              .filter((n) => n !== e && !n.dead && Math.abs(n.x - e.x) < 120)
+              .forEach((n) => this.hit(n, b.damage * 0.65, 100, e.x));
+            this.particle(e.x, 350, "BOOM!", "#ffb347");
+          }
+          if (b.family === "laser" || b.family === "saw") {
+            b.damage *= 0.6;
+            b.x += Math.sign(b.vx) * 48;
+            if (b.damage < 4) b.life = 0;
+          } else b.life = 0;
+        }
+      }
+    }
+    for (const a of this.allyUnits) {
+      a.cool -= dt;
+      a.attack = Math.max(0, (a.attack || 0) - dt);
+      const targetX = this.x - 65 - this.allyUnits.indexOf(a) * 48;
+      a.x += clamp(targetX - a.x, -250 * dt, 250 * dt);
+      if (Math.abs(a.x - this.x) > 700) a.x = targetX;
+      if (a.cool <= 0) {
+        const target = this.enemies
+          .filter(
+            (e) =>
+              !e.dead && Math.abs(e.x - a.x) < (a.id === "knight" ? 145 : 570),
+          )
+          .sort((e, b) => Math.abs(e.x - a.x) - Math.abs(b.x - a.x))[0];
+        if (target) {
+          a.facing = Math.sign(target.x - a.x);
+          a.attack = 0.2;
+          if (a.id === "knight") this.hit(target, 18, 110, a.x);
+          else
+            this.bullets.push({
+              x: a.x,
+              y: 382,
+              vx: Math.sign(target.x - a.x) * 900,
+              vy: 0,
+              damage: 12,
+              life: 1,
+              acid: false,
+              family: "rifle",
+              knock: 30,
+              owner: "ally",
+            });
+          a.cool = 0.6;
+        }
+      }
+    }
+    for (const d of this.drops) {
+      d.life -= dt;
+      if (Math.abs(this.x - d.x) < 35) this.collect(d);
+    }
+    for (const e of this.eggs)
+      if (
+        this.objective === "eggs" &&
+        !e.collected &&
+        Math.abs(e.x - this.x) < 35
+      ) {
+        e.collected = true;
+        this.collectedEggs++;
+        this.particle(e.x, 330, "EGG " + this.collectedEggs + "/3");
+        this.sound("pickup");
+      }
+    this.enemies = this.enemies.filter((e) => !e.dead);
+    this.bullets = this.bullets.filter(
+      (b) => b.life > 0 && b.y > -40 && b.y < 440,
+    );
+    this.drops = this.drops.filter((d) => d.life > 0);
+    for (const p of this.particles) {
+      p.life -= dt;
+      p.x += (p.vx || 0) * dt;
+      p.y += (p.vy || 0) * dt;
+      if (!p.text) p.vy += 280 * dt;
+    }
+    this.particles = this.particles.filter((p) => p.life > 0);
+    this.events.forEach((e) => (e.life -= dt));
+    this.events = this.events.filter((e) => e.life > 0);
+    if (this.hp <= 0) {
+      this.finish(false);
+      return;
+    }
+    if (this.objective !== "endless" && this.progress() >= this.target) {
+      this.finish(true);
+      return;
+    }
+    if (this.time >= this.nextHud) {
+      this.nextHud = this.time + 0.1;
+      this.emit();
+    }
+  }
+  finish(success) {
+    this.status = success ? "complete" : "dead";
+    this.releaseInputs();
+    this.profile.best = Math.max(this.profile.best, this.kills);
+    let bonus = 0;
+    if (success) {
+      bonus = 300 + this.profile.day * 100;
+      this.profile.cash += bonus;
+      this.earned += bonus;
+      this.profile.day++;
+    }
+    this.emit();
+    this.onFinish({
+      success,
+      bonus,
+      profile: structuredClone(this.profile),
+      kills: this.kills,
+      earned: this.earned,
+      wave: this.wave,
+      time: this.time,
+    });
+  }
+  frame(timestamp) {
+    if (this.destroyed) return;
+    const dt = this.last ? Math.min(0.04, (timestamp - this.last) / 1000) : 0;
+    this.last = timestamp;
+    if (this.status === "playing") this.update(dt);
+    this.renderer.draw(this, timestamp / 1000);
+    this.raf = requestAnimationFrame(this.frame);
+  }
 }

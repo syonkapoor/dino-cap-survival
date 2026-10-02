@@ -8,3 +8,5 @@ library-files/
 !.env.example
 .DS_Store
 *.log
+
+*.zip

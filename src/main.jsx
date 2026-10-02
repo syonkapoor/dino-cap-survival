@@ -1,32 +1,833 @@
-import React,{useState,useEffect,useRef} from 'react';
-import{createRoot}from'react-dom/client';
-import{Crosshair,Volume2,VolumeX,Maximize,Pause,Play,ArrowUpRight,Shield,Coins,ChevronRight,Swords,Target,Zap,Package,Heart,ArrowLeft,Settings,X,Check,Skull,Leaf}from'lucide-react';
-import{Game,WEAPONS,initialProfile}from'./game';
-import './style.css';
-const icons=[Swords,Target,Crosshair,Zap];
-function load(){try{return {...initialProfile,...JSON.parse(localStorage.getItem('dino-cap-save')||'{}')}}catch{return structuredClone(initialProfile)}}
-function App(){const[profile,setProfile]=useState(load),[screen,setScreen]=useState('menu'),[tab,setTab]=useState('Play'),[hud,setHud]=useState({hp:100,weapon:1,kills:0,wave:1,waveKills:0,target:10,time:0}),[muted,setMuted]=useState(false),[help,setHelp]=useState(false),[notice,setNotice]=useState(''),[shopTab,setShopTab]=useState('Weapons');const canvas=useRef(),game=useRef(),stage=useRef();const screenRef=useRef(screen);screenRef.current=screen;
- useEffect(()=>{localStorage.setItem('dino-cap-save',JSON.stringify(profile))},[profile]);
- useEffect(()=>{const g=new Game(canvas.current,load(),data=>{setHud(data);setProfile(data.profile)},p=>{setProfile(p);setScreen('dead')});game.current=g;const down=e=>{const g=game.current;if(['ArrowLeft','ArrowRight',' '].includes(e.key))e.preventDefault();g.keys[e.key.toLowerCase()]=true;g.keys[e.key]=true;if(e.repeat)return;if(screenRef.current==='playing'&&['q','e','1','2','3','4'].includes(e.key.toLowerCase())){g.weapon=/[1-4]/.test(e.key)?Number(e.key)-1:(g.weapon+(e.key.toLowerCase()==='q'?3:1))%4;g.emit()}if(e.key==='Escape'&&['playing','paused'].includes(screenRef.current)){g.paused=!g.paused;g.mouse.down=false;setScreen(g.paused?'paused':'playing')}};const up=e=>{const g=game.current;g.keys[e.key]=false;g.keys[e.key.toLowerCase()]=false};const release=()=>game.current.mouse.down=false;const blur=()=>{const g=game.current;g.keys={};g.mouse.down=false;if(screenRef.current==='playing'){g.paused=true;setScreen('paused')}};window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('pointerup',release);window.addEventListener('blur',blur);return()=>{game.current.destroy();window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('pointerup',release);window.removeEventListener('blur',blur)}},[]);
- const start=()=>{game.current.destroy();game.current=new Game(canvas.current,profile,d=>{setHud(d);setProfile(d.profile)},p=>{setProfile(p);setScreen('dead')});game.current.muted=muted;game.current.start();setScreen('playing');setTab('Play')};
- const pause=()=>{game.current.paused=true;game.current.mouse.down=false;setScreen('paused')};const resume=()=>{game.current.profile=structuredClone(profile);game.current.paused=false;setScreen('playing')};
- const openShop=()=>{if(screen==='playing')game.current.paused=true;game.current.mouse.down=false;setScreen(screen==='playing'||screen==='paused'?'shop-paused':'shop');setTab('Armory')};
- const buy=(price,apply)=>{if(profile.cash<price){setNotice('Not enough cash. Head into the jungle to earn more.');return}setProfile(p=>{const n=structuredClone(p);n.cash-=price;apply(n);return n});setNotice('Added to your loadout. Ready for the jungle.');setTimeout(()=>setNotice(''),3500)};
- const isShop=screen.startsWith('shop'),isRun=['playing','paused','shop-paused','dead'].includes(screen);const format=n=>n.toLocaleString();
- return <div className="app"><header><a className="brand" href="#" onClick={e=>{e.preventDefault();if(screen==='playing')pause();else{setScreen('menu');setTab('Play')}}}><div className="brand-icon"><Skull size={25}/></div><span>DINO<span className="orange">CAP</span><small>SURVIVAL CLUB</small></span></a><nav>{['Play','Armory','Field Guide'].map(t=><button className={tab===t?'active':''} onClick={()=>{if(t==='Armory')openShop();else if(t==='Field Guide'){setTab(t);setHelp(true)}else{setTab(t);if(isShop)setScreen(screen==='shop-paused'?'paused':'menu')}}} key={t}>{t}</button>)}</nav><div className="account"><div className="cash"><Coins size={17}/>{format(profile.cash)}<span>CASH</span></div><div className="rank">{profile.level}</div><div className="rank-text">Rookie<small>LEVEL {profile.level}</small></div></div></header>
- <main><div className="page-heading"><div><div className="eyebrow"><span/> THE LAST HUMAN. THE FIRST WAVE.</div><h1>Welcome to the wild.</h1><p>They had their time. Now it’s your turn to survive.</p></div><div className="status"><span/> ALL SYSTEMS GO <small>LOCAL SAVE ACTIVE</small></div></div>
- <section className="arena" ref={stage}><div className="arena-top"><div><Leaf size={16}/><b>THE LOST JUNGLE</b><span>SECTOR 01</span></div><div className="arena-tools"><span className="live-dot"/> SURVIVAL MODE <i/><button title={muted?'Enable sound':'Mute sound'} onClick={()=>{setMuted(!muted);game.current.muted=!muted}}>{muted?<VolumeX size={17}/>:<Volume2 size={17}/>}</button><button title="Fullscreen" onClick={()=>document.fullscreenElement?document.exitFullscreen():stage.current.requestFullscreen()}><Maximize size={16}/></button></div></div>
- <div className={'canvas-wrap '+(screen==='playing'?'running':'')}><canvas ref={canvas} onPointerMove={e=>{const r=canvas.current.getBoundingClientRect();game.current.mouse.x=(e.clientX-r.left)/r.width*1080;game.current.mouse.y=(e.clientY-r.top)/r.height*500}} onPointerDown={e=>{if(screen==='playing'){e.preventDefault();game.current.mouse.down=true;canvas.current.setPointerCapture(e.pointerId)}}} onContextMenu={e=>e.preventDefault()}/>
- {isRun&&!isShop&&<div className="hud"><div className="player-hud"><div className="hp-label"><Heart size={13}/> HP <b>{Math.ceil(hud.hp)} / 100</b></div><div className="bar"><div style={{width: hud.hp+'%',background:hud.hp<30?'#dc6650':''}}/></div><div className="exp-line">LVL {profile.level}<div className="exp-bar"><i style={{width:profile.exp/(profile.level*100)*100+'%'}}/></div>{Math.round(profile.exp/(profile.level*100)*100)}%</div><p>{WEAPONS[hud.weapon].name} <span>{WEAPONS[hud.weapon].ammo?profile[WEAPONS[hud.weapon].ammo]:'∞'} AMMO</span></p></div><div className="wave-hud"><b>WAVE {String(hud.wave).padStart(2,'0')}</b><p>{hud.waveKills} / {hud.target} KILLS</p><span><Coins size={14}/> {format(profile.cash)}</span><button title="Pause" onClick={pause}><Pause size={18}/></button></div></div>}
- {screen==='menu'&&<><div className="scene-badge"><span/> ENDLESS SURVIVAL <i>•</i> JUNGLE</div><div className="hero-content"><div className="overline">LOCK. LOAD. LAST.</div><div className="game-title">DINO<span>CAP</span><div>SURVIVAL</div></div><p>A whole jungle wants you dead.<br/>Make them work for it.</p><button className="primary start" onClick={start}><Play size={18} fill="currentColor"/> ENTER THE JUNGLE <ChevronRight size={19}/></button><div className="hero-meta"><Shield size={13}/> LEVEL {profile.level} <i/> BEST RUN: {profile.best} KILLS</div></div><div className="scene-note"><span>01</span><div>NO WAY BACK.<small>JUST ONE MORE WAVE.</small></div></div></>}
- {screen==='paused'&&<div className="overlay"><div className="dialog"><div className="eyebrow">TAKE A BREATHER</div><h2>Game paused.</h2><p>The jungle can wait a minute.</p><button className="primary" onClick={resume}><Play size={17}/> BACK TO THE FIGHT</button><button className="secondary" onClick={openShop}>VISIT ARMORY</button><button className="text-btn" onClick={()=>{setScreen('menu');game.current.time=0}}>Return to main menu</button></div></div>}
- {screen==='dead'&&<div className="overlay"><div className="dialog"><Skull size={38} className="orange"/><h2>YOU DIED</h2><p>The jungle always gets its way. Until next time.</p><div className="run-stats"><div><b>{hud.kills}</b><small>KILLS</small></div><div><b>{format(hud.earned)}</b><small>CASH EARNED</small></div><div><b>{hud.wave}</b><small>WAVE REACHED</small></div></div><button className="primary" onClick={start}><Play size={16}/> ONE MORE RUN</button><button className="secondary" onClick={openShop}>MAIN MENU / ARMORY</button></div></div>}
- {isShop&&<div className="shop"><div className="shop-head"><div><div className="eyebrow">BETTER GEAR. BETTER ODDS.</div><h2>The Armory</h2></div><button className="secondary" onClick={()=>{setTab('Play');setScreen(screen==='shop-paused'?'paused':'menu');game.current.profile=structuredClone(profile)}}><ArrowLeft size={15}/> BACK</button></div><div className="shop-tabs">{['Weapons','Ammo','Mercenaries'].map(t=><button className={shopTab===t?'selected':''} onClick={()=>{setShopTab(t);setNotice('')}} key={t}>{t}</button>)}</div><div className="shop-grid">{shopTab==='Weapons'?WEAPONS.map((w,i)=>{const Icon=icons[i];const price=250*(profile.upgrades[i]+1);return <div className="shop-card" key={w.name}><Icon size={36}/><h3>{w.name}</h3><p>{w.damage+2*profile.upgrades[i]} DAMAGE <span>LVL {profile.upgrades[i]}</span></p><small>+2 attack power per upgrade</small><button className="secondary" onClick={()=>buy(price,p=>p.upgrades[i]++)}>UPGRADE · {format(price)} <Coins size={13}/></button></div>}):shopTab==='Ammo'?[['Shotgun shells','shells',20,300],['SMG rounds','smg',120,400]].map(([name,key,amount,price])=><div className="shop-card" key={key}><Package size={36}/><h3>{name}</h3><p>{profile[key]} IN INVENTORY</p><small>Refill +{amount} rounds</small><button className="secondary" onClick={()=>buy(price,p=>p[key]+=amount)}>BUY · {price} <Coins size={13}/></button></div>):[['Soldier',15000,'A steady aim. A loyal ally. Ranged support.'],['Force Knight',25000,'Close combat specialist. Heavy melee strikes.']].map(([name,price,desc])=><div className="shop-card" key={name}><Shield size={36}/><h3>{name}</h3><p>{desc}</p><small>Follows you and attacks automatically</small><button className="secondary" disabled={profile.allies.includes(name)} onClick={()=>buy(price,p=>p.allies.push(name))}>{profile.allies.includes(name)?'HIRED ✓':`HIRE · ${format(price)}`}</button></div>)}</div><div className="shop-notice">{notice||'All purchases and upgrades are saved automatically.'}</div></div>}
- </div><div className="arena-footer"><span><span className="green-dot"/> {screen==='playing'?'YOU’RE IN. STAY ALIVE.':'READY WHEN YOU ARE.'}</span><span><Shield size={13}/> PROGRESS SAVES AUTOMATICALLY</span><button onClick={()=>setHelp(true)}>HOW TO PLAY <ArrowUpRight size={14}/></button></div></section>
- <section className="loadout-section"><div className="section-heading"><h2><Swords size={17}/> Your loadout <span>4 WEAPONS. ONE SURVIVOR.</span></h2><button onClick={openShop}>Visit armory <ArrowUpRight size={16}/></button></div><div className="loadout-grid">{WEAPONS.map((w,i)=>{const Icon=icons[i];return <button key={w.name} className={'weapon-card '+(hud.weapon===i?'equipped':'')} onClick={()=>{game.current.profile=structuredClone(profile);game.current.weapon=i;game.current.emit()}}><div className="weapon-top"><span className="keycap">{i+1}</span><small>{hud.weapon===i?'EQUIPPED':i>1?'SPECIAL':'STANDARD'}</small><span className="weapon-indicator"/></div><div className="weapon-art"><WeaponArt index={i}/></div><div className="weapon-bottom"><div><h3>{w.name}</h3><p>{['CLOSE & PERSONAL','EVERY SHOT COUNTS','MAKE SOME SPACE','SPRAY & SURVIVE'][i]}</p></div><div className="ammo">{w.ammo?profile[w.ammo]:'∞'}<small>{w.ammo?'ROUNDS':'AMMO'}</small></div></div><div className="weapon-stats"><span><Crosshair size={11}/>{w.damage+profile.upgrades[i]*2} DMG</span><span>{['MELEE','SEMI-AUTO','SPREAD','FULL-AUTO'][i]}</span></div></button>})}</div></section>
- <section className="bottom-row"><div className="controls"><span className="small-label">SURVIVAL BASICS</span><div><kbd>A</kbd><kbd>D</kbd><span>Move</span><span className="mouse-icon">♧</span><span>Aim & shoot</span><kbd>Q</kbd><kbd>E</kbd><span>Switch weapon</span><kbd>ESC</kbd><span>Pause</span></div></div><div className="tip"><div className="tip-icon"><Zap size={20}/></div><div><span className="small-label">FIELD TIP #01</span><p>Keep moving. A standing target is an easy meal.</p></div></div></section>
- </main><footer><span>© 2026 DINO CAP <i/> BUILT FOR ONE MORE RUN.</span><span><span className="green-dot"/> OFFLINE READY <i/> v1.0</span></footer>
- {help&&<div className="modal-backdrop"><div className="guide"><button className="close" onClick={()=>{setHelp(false);setTab(isShop?'Armory':'Play')}}><X size={20}/></button><div className="eyebrow">KNOW YOUR ENEMY</div><h2>Field guide</h2><p>Move with A/D or arrow keys. Aim with your mouse and hold left-click to attack. Q/E or 1–4 switch weapons. Escape pauses the fight.</p><div className="enemy-guide"><div><b>Velociraptor</b><span>20 HP · 10 DMG</span><p>Fast. Small. Lunges when close. Keep your distance.</p></div><div><b>Large Brute</b><span>150 HP · 35 DMG</span><p>Slow, tough, and resistant to knockback. Focus your fire.</p></div><div><b>Blue Mutant</b><span>50 HP · ACID SPIT</span><p>Ranged acid attacks. Watch the green projectiles.</p></div></div><p>Collect health packs for +25 HP and crates for ammo. Kills earn cash and EXP. Each level restores 25 HP. Visit the armory anytime from pause to improve your odds.</p><button className="primary" onClick={()=>{setHelp(false);setTab(isShop?'Armory':'Play')}}><Check size={16}/> GOT IT. LET’S SURVIVE.</button></div></div>}
- </div>}
-function WeaponArt({index}){return <svg viewBox="0 0 240 65" aria-hidden="true"><defs><linearGradient id={'metal'+index} x2="0" y2="1"><stop stopColor="#a6ada0"/><stop offset="1" stopColor="#4c5850"/></linearGradient></defs><g transform="translate(38,8) rotate(-8 85 30)" stroke="#111b15" strokeWidth="3" strokeLinejoin="round">{index===0?<><path d="M54 33 L156 12 Q174 15 152 29 L58 46Z" fill="#b7c4b1"/><path d="M23 35 L58 32 L61 48 L26 52Z" fill="#a17849"/><path d="M30 37L32 48M40 35L42 47M50 35L51 45" stroke="#382b21"/></>:<><path d={index===2?'M30 19 H163 V31 H45 L33 43 H7 L5 35Z':index===3?'M36 14 H119 V36 H76 L68 56 H51 L57 35 H33Z':'M46 15 H125 V32 H81 L73 55 H53 L61 31 H46Z'} fill={'url(#metal'+index+')'}/><path d={index===2?'M48 26H109V38H48Z':index===3?'M79 36L90 55H103L96 35Z':'M61 33L55 52H72L78 33Z'} fill="#72745a"/><path d={index===2?'M105 22H173V28H105':index===3?'M119 20H146V30H119':'M124 20H136V27H124'} fill="#68766a"/><path d="M54 19H100" stroke="#c0c6b5" strokeWidth="2"/>{index===3&&<path d="M89 11V4H115V14" fill="none"/>}</>}</g></svg>}
-createRoot(document.getElementById('root')).render(<App/>);
+import React, { useEffect, useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import {
+  Volume2,
+  VolumeX,
+  Maximize,
+  Settings,
+  Coins,
+  Play,
+  ArrowLeft,
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Lock,
+  Skull,
+  Shield,
+  Target,
+  Clock,
+  Flag,
+  Egg,
+  BookOpen,
+} from "lucide-react";
+import { Game, missionForDay } from "./game";
+import { BIOMES, HEROES, MODES, WEAPONS, loadProfile } from "./data";
+import { Hud, TouchControls } from "./Hud";
+import { Shop } from "./Shop";
+import { HeroPortrait, WeaponArt } from "./Art";
+import "./style.css";
+const prettyTime = (n) =>
+  `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(Math.floor(n % 60)).padStart(2, "0")}`;
+const blankHud = {
+  hp: 100,
+  maxHp: 100,
+  weapon: 1,
+  inventory: [0, 1, 2, 3],
+  kills: 0,
+  wave: 1,
+  waveKills: 0,
+  waveTarget: 12,
+  time: 0,
+  distance: 0,
+  eggs: 0,
+  progress: 0,
+  objective: "endless",
+  target: 0,
+  specialCool: 0,
+};
+function App() {
+  const [profile, setProfile] = useState(loadProfile),
+    [screen, setScreen] = useState("menu"),
+    [edition, setEdition] = useState(() => profile.edition),
+    [mode, setMode] = useState(() =>
+      profile.edition === "classic" ? "blitz" : "missions",
+    ),
+    [biome, setBiome] = useState("jungle"),
+    [hero, setHero] = useState(() => profile.hero),
+    [mission, setMission] = useState(() => missionForDay(profile.day)),
+    [hud, setHud] = useState(blankHud),
+    [result, setResult] = useState(null),
+    [muted, setMuted] = useState(() => {
+      try {
+        return localStorage.getItem("dino-cap-muted") === "true";
+      } catch {
+        return false;
+      }
+    }),
+    [returnScreen, setReturnScreen] = useState("menu"),
+    [equipOpen, setEquipOpen] = useState(false);
+  const canvas = useRef(),
+    stage = useRef(),
+    game = useRef(),
+    screenRef = useRef(screen),
+    profileRef = useRef(profile);
+  screenRef.current = screen;
+  profileRef.current = profile;
+  const update = (data) => {
+    setHud(data);
+    setProfile(data.profile);
+  };
+  const finish = (r) => {
+    setResult(r);
+    setProfile(r.profile);
+    setScreen(r.success ? "complete" : "dead");
+    setMission(missionForDay(r.profile.day));
+  };
+  const shopFromGame = () => {
+    setReturnScreen("paused");
+    setScreen("shop");
+  };
+  useEffect(() => {
+    const g = new Game(
+      canvas.current,
+      profileRef.current,
+      update,
+      finish,
+      shopFromGame,
+    );
+    g.muted = muted;
+    game.current = g;
+    const keydown = (e) => {
+      const g = game.current;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        if (screenRef.current === "playing") {
+          g.pause();
+          setScreen("paused");
+        } else if (screenRef.current === "paused") {
+          g.resume(profileRef.current);
+          setScreen("playing");
+        } else if (
+          screenRef.current === "shop" ||
+          screenRef.current === "guide" ||
+          screenRef.current === "heroes"
+        ) {
+          setScreen(g.time > 0 && g.status === "paused" ? "paused" : "menu");
+        }
+        return;
+      }
+      if (screenRef.current !== "playing") return;
+      if (["ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
+      g.keys[e.key] = true;
+      g.keys[e.key.toLowerCase()] = true;
+      if (e.repeat) return;
+      if (["q", "e"].includes(e.key.toLowerCase()))
+        g.cycle(e.key.toLowerCase() === "q" ? -1 : 1);
+      if (/^[1-4]$/.test(e.key)) g.select(Number(e.key) - 1);
+      if (e.key.toLowerCase() === "l") g.special();
+    };
+    const keyup = (e) => {
+      game.current.keys[e.key] = false;
+      game.current.keys[e.key.toLowerCase()] = false;
+    };
+    const blur = () => {
+      game.current.releaseInputs();
+      if (screenRef.current === "playing") {
+        game.current.pause();
+        setScreen("paused");
+      }
+    };
+    window.addEventListener("keydown", keydown);
+    window.addEventListener("keyup", keyup);
+    window.addEventListener("blur", blur);
+    return () => {
+      game.current.destroy();
+      window.removeEventListener("keydown", keydown);
+      window.removeEventListener("keyup", keyup);
+      window.removeEventListener("blur", blur);
+    };
+  }, []);
+  useEffect(() => {
+    try {
+      localStorage.setItem("dino-cap-save", JSON.stringify(profile));
+    } catch {
+      /* Continue gameplay if browser storage is unavailable. */
+    }
+    if (game.current && game.current.status !== "playing")
+      game.current.syncProfile(profile);
+  }, [profile]);
+  useEffect(() => {
+    try {
+      localStorage.setItem("dino-cap-muted", String(muted));
+    } catch {}
+    if (game.current) game.current.muted = muted;
+  }, [muted]);
+  useEffect(() => {
+    if (game.current && screen === "menu") {
+      game.current.status = "menu";
+      game.current.configure({ edition, hero, biome, mode });
+    }
+  }, [edition, hero, biome, mode, screen]);
+  const changeEdition = (value) => {
+    if (screen !== "menu") return;
+    setEdition(value);
+    setMode(value === "classic" ? "blitz" : "missions");
+    setBiome("jungle");
+    setProfile((p) => ({ ...p, edition: value }));
+  };
+  const selectMode = (m) => {
+    setMode(m.id);
+    if (m.id === "city") setBiome("city");
+    else if (m.id === "blitz") setBiome("jungle");
+  };
+  const start = () => {
+    game.current.destroy();
+    const g = new Game(
+      canvas.current,
+      profileRef.current,
+      update,
+      finish,
+      shopFromGame,
+    );
+    game.current = g;
+    g.muted = muted;
+    const chosen =
+      MODES[edition].find((m) => m.id === mode) || MODES[edition][0];
+    const task =
+      mode === "missions"
+        ? mission
+        : { objective: chosen.objective, target: chosen.target };
+    g.configure({ edition, hero, biome, mode, ...task });
+    g.start();
+    setScreen("playing");
+    setResult(null);
+    setEquipOpen(false);
+  };
+  const pause = () => {
+    game.current.pause();
+    setScreen("paused");
+    setEquipOpen(false);
+  };
+  const resume = () => {
+    game.current.resume(profileRef.current);
+    setScreen("playing");
+  };
+  const toMenu = () => {
+    game.current.pause();
+    game.current.status = "menu";
+    game.current.releaseInputs();
+    setScreen("menu");
+    setEquipOpen(false);
+  };
+  const openPanel = (name) => {
+    const prev = screen === "playing" ? "paused" : screen;
+    if (screen === "playing") game.current.pause();
+    setReturnScreen(prev);
+    setScreen(name);
+    setEquipOpen(false);
+  };
+  const back = () => {
+    setScreen(returnScreen === "playing" ? "paused" : returnScreen);
+  };
+  const purchase = (cost, apply) =>
+    setProfile((prev) => {
+      if (prev.cash < cost) return prev;
+      const p = structuredClone(prev);
+      p.cash -= cost;
+      apply(p);
+      return p;
+    });
+  const selectedHero = HEROES.find((h) => h.id === hero) || HEROES[0];
+  const selectedBiome = BIOMES.find((b) => b.id === biome);
+  return (
+    <div className="collection-app">
+      <header className="collection-header">
+        <a
+          className="collection-brand"
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            toMenu();
+          }}
+        >
+          <Skull size={22} />
+          <span>
+            DINO CAP<small>THE COLLECTION</small>
+          </span>
+        </a>
+        <div className="edition-switch" aria-label="Game edition">
+          <button
+            className={edition === "classic" ? "selected" : ""}
+            disabled={screen !== "menu"}
+            onClick={() => changeEdition("classic")}
+          >
+            CLASSIC <small>2010</small>
+          </button>
+          <button
+            className={edition === "sequel" ? "selected" : ""}
+            disabled={screen !== "menu"}
+            onClick={() => changeEdition("sequel")}
+          >
+            SEQUEL <small>2011</small>
+          </button>
+        </div>
+        <div className="header-tools">
+          <button
+            title={muted ? "Enable sound" : "Mute sound"}
+            onClick={() => setMuted((m) => !m)}
+          >
+            {muted ? <VolumeX size={19} /> : <Volume2 size={19} />}
+          </button>
+          <button
+            title="Fullscreen"
+            onClick={() =>
+              document.fullscreenElement
+                ? document.exitFullscreen()
+                : stage.current.requestFullscreen()
+            }
+          >
+            <Maximize size={18} />
+          </button>
+          <button
+            title="Controls & field guide"
+            onClick={() => openPanel("guide")}
+          >
+            <Settings size={19} />
+          </button>
+        </div>
+      </header>
+      <main className="arcade-shell">
+        <section
+          className={"game-stage " + edition + " screen-" + screen}
+          ref={stage}
+          aria-label="Dino Cap game"
+        >
+          <canvas
+            className="game-canvas"
+            ref={canvas}
+            aria-label="Side-scrolling dinosaur combat arena"
+            onPointerMove={(e) => {
+              if (e.pointerType === "touch") return;
+              const r = canvas.current.getBoundingClientRect();
+              const g = game.current;
+              g.touchAim = false;
+              g.mouse.x = ((e.clientX - r.left) / r.width) * 1080;
+              g.mouse.y = ((e.clientY - r.top) / r.height) * 608;
+            }}
+            onPointerDown={(e) => {
+              if (screen === "playing") {
+                e.preventDefault();
+                const g = game.current;
+                g.touchAim = e.pointerType === "touch";
+                g.mouse.down = true;
+                canvas.current.setPointerCapture(e.pointerId);
+              }
+            }}
+            onPointerUp={() => (game.current.mouse.down = false)}
+            onPointerCancel={() => (game.current.mouse.down = false)}
+            onLostPointerCapture={() => (game.current.mouse.down = false)}
+            onContextMenu={(e) => e.preventDefault()}
+          />
+          {screen === "menu" && (
+            <div className="main-menu">
+              <div className="menu-coins">
+                <Coins /> {profile.cash.toLocaleString()}
+                <span>LV.{profile.level}</span>
+              </div>
+              <div className="menu-title">
+                <span className="tagline">LOCK ’N LOAD, BABY.</span>
+                <h1>
+                  DINO
+                  <br />
+                  <span>CAP</span>
+                  {edition === "sequel" && <b>2</b>}
+                </h1>
+                <div className="title-ribbon">
+                  {edition === "classic"
+                    ? "THE ORIGINAL DINO WAR"
+                    : "THE DINOS ARE BACK!"}
+                </div>
+              </div>
+              <div className="mode-board">
+                <div className="board-caption">
+                  {edition === "classic"
+                    ? "CHOOSE YOUR BATTLE"
+                    : "DAY " + profile.day + " · CHOOSE YOUR BATTLE"}
+                </div>
+                {MODES[edition].map((m) => (
+                  <button
+                    key={m.id}
+                    className={
+                      "mode-option " + (mode === m.id ? "selected" : "")
+                    }
+                    onClick={() => selectMode(m)}
+                  >
+                    <span className="mode-icon">
+                      {m.id === "city" ? (
+                        <Target />
+                      ) : m.id === "blitz" ? (
+                        <Clock />
+                      ) : m.id === "missions" ? (
+                        <Flag />
+                      ) : (
+                        <Skull />
+                      )}
+                    </span>
+                    <span>
+                      <b>{m.name}</b>
+                      <small>{m.detail}</small>
+                    </span>
+                    {mode === m.id ? (
+                      <Check size={19} />
+                    ) : (
+                      <ChevronRight size={20} />
+                    )}
+                  </button>
+                ))}
+                {mode === "missions" && (
+                  <div className="mission-selector">
+                    <span>OBJECTIVE</span>
+                    <div>
+                      {[
+                        {
+                          objective: "kills",
+                          target: 25,
+                          title: "DINO EXTERMINATION",
+                          icon: Target,
+                          label: "25 KILLS",
+                        },
+                        {
+                          objective: "survive",
+                          target: 90,
+                          title: "HOLD YOUR GROUND",
+                          icon: Clock,
+                          label: "90 SECONDS",
+                        },
+                        {
+                          objective: "distance",
+                          target: 1200,
+                          title: "MAKE A RUN FOR IT",
+                          icon: Flag,
+                          label: "1200 METERS",
+                        },
+                        {
+                          objective: "eggs",
+                          target: 3,
+                          title: "EGG SNATCHER",
+                          icon: Egg,
+                          label: "3 EGGS",
+                        },
+                      ].map((m) => (
+                        <button
+                          key={m.objective}
+                          title={m.label}
+                          className={
+                            mission.objective === m.objective ? "selected" : ""
+                          }
+                          onClick={() => setMission(m)}
+                        >
+                          <m.icon size={16} />
+                        </button>
+                      ))}
+                    </div>
+                    <b>
+                      {mission.objective === "kills"
+                        ? `${mission.target} KILLS`
+                        : mission.objective === "survive"
+                          ? `${mission.target} SECONDS`
+                          : mission.objective === "distance"
+                            ? `${mission.target} METERS`
+                            : `${mission.target} EGGS`}
+                    </b>
+                  </div>
+                )}
+                <div className="location-selector">
+                  <button
+                    aria-label="Previous landscape"
+                    disabled={edition === "classic"}
+                    onClick={() =>
+                      setBiome(
+                        BIOMES[
+                          (BIOMES.findIndex((b) => b.id === biome) +
+                            BIOMES.length -
+                            1) %
+                            BIOMES.length
+                        ].id,
+                      )
+                    }
+                  >
+                    <ChevronLeft size={17} />
+                  </button>
+                  <span>
+                    <small>LOCATION</small>
+                    {selectedBiome.name.toUpperCase()}
+                  </span>
+                  <button
+                    aria-label="Next landscape"
+                    disabled={edition === "classic"}
+                    onClick={() =>
+                      setBiome(
+                        BIOMES[
+                          (BIOMES.findIndex((b) => b.id === biome) + 1) %
+                            BIOMES.length
+                        ].id,
+                      )
+                    }
+                  >
+                    <ChevronRight size={17} />
+                  </button>
+                </div>
+                <button className="arcade-button start-button" onClick={start}>
+                  <Play fill="currentColor" size={21} /> START GAME
+                </button>
+              </div>
+              <div className="menu-bottom">
+                <button
+                  className="wood-button"
+                  onClick={() => openPanel("shop")}
+                >
+                  <Shield size={18} />
+                  {edition === "classic" ? "AMMO COUNTRY" : "ARMORY"}
+                </button>
+                {edition === "sequel" && (
+                  <button
+                    className="wood-button"
+                    onClick={() => openPanel("heroes")}
+                  >
+                    <Skull size={17} />
+                    {selectedHero.name.toUpperCase()} <ChevronRight size={14} />
+                  </button>
+                )}
+                <button
+                  className="wood-button"
+                  onClick={() => openPanel("guide")}
+                >
+                  <BookOpen size={17} /> HOW TO PLAY
+                </button>
+              </div>
+              <div className="best-score">
+                BEST RUN <b>{profile.best}</b> KILLS
+              </div>
+            </div>
+          )}
+          {["playing", "paused"].includes(screen) && (
+            <Hud
+              hud={hud}
+              profile={profile}
+              edition={edition}
+              onPause={pause}
+              onCycle={() => {
+                if (screen === "playing") game.current.cycle(1);
+              }}
+            />
+          )}
+          {screen === "playing" && (
+            <>
+              <TouchControls game={game} edition={edition} />
+              <div className="playing-label">
+                <button
+                  title="Choose equipped weapon"
+                  onClick={() => {
+                    game.current.pause();
+                    setEquipOpen(true);
+                    setScreen("paused");
+                  }}
+                >
+                  {WEAPONS[hud.weapon]?.name} <span>Q / E</span>
+                </button>
+                {hud.nearShop && (
+                  <button
+                    className="shop-hint"
+                    onClick={() => openPanel("shop")}
+                  >
+                    [ F ] AMMO COUNTRY
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+          {screen === "paused" && (
+            <div className="modal-shade">
+              <div className="pause-panel">
+                <h2>{equipOpen ? "LOADOUT" : "PAUSED"}</h2>
+                {equipOpen ? (
+                  <div className="loadout-options">
+                    {hud.inventory.map((index) => (
+                      <button
+                        className={hud.weapon === index ? "selected" : ""}
+                        key={index}
+                        onClick={() => {
+                          game.current.select(index);
+                          setEquipOpen(false);
+                          resume();
+                        }}
+                      >
+                        <WeaponArt index={index} />
+                        <span>{WEAPONS[index].name}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <p>THE DINOS CAN WAIT.</p>
+                    <button className="arcade-button" onClick={resume}>
+                      <Play fill="currentColor" size={17} /> RESUME
+                    </button>
+                    <button
+                      className="wood-button"
+                      onClick={() => openPanel("shop")}
+                    >
+                      ARMORY
+                    </button>
+                    <button
+                      className="wood-button"
+                      onClick={() => setEquipOpen(true)}
+                    >
+                      CHANGE WEAPON
+                    </button>
+                    <button className="wood-button" onClick={toMenu}>
+                      MAIN MENU
+                    </button>
+                  </>
+                )}
+                {equipOpen && (
+                  <button
+                    className="wood-button"
+                    onClick={() => setEquipOpen(false)}
+                  >
+                    BACK
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {screen === "shop" && (
+            <div className="modal-shade">
+              <Shop
+                profile={profile}
+                edition={edition}
+                onPurchase={purchase}
+                onBack={back}
+              />
+            </div>
+          )}
+          {screen === "heroes" && (
+            <div className="modal-shade">
+              <div className="game-panel hero-panel">
+                <div className="panel-heading">
+                  <button className="back-button" onClick={back}>
+                    <ArrowLeft /> BACK
+                  </button>
+                  <h2>CHOOSE YOUR HERO</h2>
+                  <div className="panel-cash">
+                    <Coins />
+                    {profile.cash.toLocaleString()}
+                  </div>
+                </div>
+                <div className="hero-selection">
+                  {HEROES.map((h) => (
+                    <button
+                      className={
+                        "hero-select " + (h.id === hero ? "selected" : "")
+                      }
+                      key={h.id}
+                      onClick={() => {
+                        if (profile.heroes.includes(h.id)) {
+                          setHero(h.id);
+                          setProfile((p) => ({ ...p, hero: h.id }));
+                          back();
+                        } else {
+                          setReturnScreen("heroes");
+                          setScreen("shop");
+                        }
+                      }}
+                    >
+                      <HeroPortrait hero={h.id} weapon={h.weapon} />
+                      <h3>{h.name}</h3>
+                      <p>{h.description}</p>
+                      <span>
+                        {profile.heroes.includes(h.id) ? (
+                          h.id === hero ? (
+                            <>
+                              <Check size={15} /> SELECTED
+                            </>
+                          ) : (
+                            "SELECT HERO"
+                          )
+                        ) : (
+                          <>
+                            <Lock size={13} /> {h.price.toLocaleString()}
+                          </>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="panel-note">
+                  Unlock heroes and upgrade their health in the Armory.
+                </p>
+              </div>
+            </div>
+          )}
+          {screen === "guide" && (
+            <div className="modal-shade">
+              <div className="game-panel guide-panel">
+                <div className="panel-heading">
+                  <button className="back-button" onClick={back}>
+                    <ArrowLeft /> BACK
+                  </button>
+                  <h2>FIELD GUIDE</h2>
+                  <BookOpen size={25} />
+                </div>
+                <div className="guide-content">
+                  <div>
+                    <h3>LOCK & LOAD</h3>
+                    <p>
+                      <kbd>A</kbd> <kbd>D</kbd> or arrows — move
+                    </p>
+                    <p>
+                      <kbd>MOUSE</kbd> — aim & hold to shoot
+                    </p>
+                    <p>
+                      <kbd>Q</kbd> <kbd>E</kbd> — cycle unlocked weapons
+                    </p>
+                    <p>
+                      <kbd>J</kbd> — melee · <kbd>K</kbd> — shoot
+                    </p>
+                    <p>
+                      <kbd>L</kbd> — special (3 energy, 3s cooldown)
+                    </p>
+                    <p>
+                      <kbd>ESC</kbd> — pause · <kbd>F</kbd> — Ammo Country
+                    </p>
+                    <small>
+                      The red arrows and colored buttons also work with touch.
+                      Health packs restore 25 HP. Ammo crates refill your guns.
+                    </small>
+                  </div>
+                  <div>
+                    <h3>KNOW YOUR DINOS</h3>
+                    <article>
+                      <b>VELOCIRAPTOR</b>
+                      <span>20 HP · 10 DMG</span>
+                      <p>Small, fast, and ready to lunge. Keep moving.</p>
+                    </article>
+                    <article>
+                      <b>LARGE BRUTE</b>
+                      <span>150 HP · 35 DMG</span>
+                      <p>Slow, tough, resistant to knockback.</p>
+                    </article>
+                    <article>
+                      <b>BLUE MUTANT</b>
+                      <span>50 HP · ACID SPIT</span>
+                      <p>Ranged acid. Watch the green projectiles.</p>
+                    </article>
+                  </div>
+                  <div>
+                    <h3>TWO DINO WARS</h3>
+                    <article>
+                      <b>CLASSIC</b>
+                      <p>
+                        City Sweep: kill dinos and visit Ammo Country. Jungle
+                        Blitz: survive endlessly and collect random weapons.
+                      </p>
+                    </article>
+                    <article>
+                      <b>SEQUEL</b>
+                      <p>
+                        Missions: kills, survival, distance, or egg stealing.
+                        Arena: escalating endless waves.
+                      </p>
+                    </article>
+                    <small>
+                      Cash, level, EXP, weapons, ammo, heroes, and upgrades
+                      persist between runs on this browser.
+                    </small>
+                  </div>
+                </div>
+                <button className="arcade-button guide-done" onClick={back}>
+                  GOT IT!
+                </button>
+              </div>
+            </div>
+          )}
+          {["dead", "complete"].includes(screen) && result && (
+            <div className="modal-shade">
+              <div
+                className={"result-panel " + (result.success ? "success" : "")}
+              >
+                <div className="result-symbol">
+                  {result.success ? <Flag size={45} /> : <Skull size={48} />}
+                </div>
+                <h2>{result.success ? "MISSION COMPLETE" : "YOU DIED"}</h2>
+                <p>
+                  {result.success
+                    ? "THE DINOS NEVER STOOD A CHANCE."
+                    : "THE DINOS WIN THIS ROUND."}
+                </p>
+                <div className="result-stats">
+                  <div>
+                    <b>{result.kills}</b>
+                    <small>KILLS</small>
+                  </div>
+                  <div>
+                    <b>{result.earned.toLocaleString()}</b>
+                    <small>CASH EARNED</small>
+                  </div>
+                  <div>
+                    <b>{prettyTime(result.time)}</b>
+                    <small>SURVIVED</small>
+                  </div>
+                </div>
+                {result.success && (
+                  <div className="completion-bonus">
+                    <Coins size={16} /> MISSION BONUS +{result.bonus}
+                  </div>
+                )}
+                <button className="arcade-button" onClick={start}>
+                  {result.success ? "NEXT MISSION" : "TRY AGAIN"}
+                </button>
+                <div className="result-actions">
+                  <button
+                    className="wood-button"
+                    onClick={() => {
+                      setReturnScreen(screen);
+                      setScreen("shop");
+                    }}
+                  >
+                    ARMORY
+                  </button>
+                  <button className="wood-button" onClick={toMenu}>
+                    MAIN MENU
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+        <div className="cabinet-footer">
+          <span>
+            <i />{" "}
+            {edition === "classic"
+              ? "DINO CAP · CLASSIC"
+              : "DINO CAP 2 · SEQUEL"}{" "}
+            <b>·</b>{" "}
+            {screen === "playing"
+              ? "SURVIVE. SHOOT. REPEAT."
+              : "LOCK. LOAD. CAP SOME DINOS."}
+          </span>
+          <span>
+            <Shield size={12} /> AUTO SAVE <b>·</b> KEYBOARD + TOUCH
+          </span>
+        </div>
+      </main>
+      <footer className="collection-footer">
+        <span>A BROWSER RECREATION OF THE TRINITI INTERACTIVE CLASSICS</span>
+        <button onClick={() => openPanel("guide")}>
+          CONTROLS & FIELD GUIDE <ChevronRight size={12} />
+        </button>
+      </footer>
+    </div>
+  );
+}
+createRoot(document.getElementById("root")).render(<App />);
