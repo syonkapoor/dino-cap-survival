@@ -1,5 +1,9 @@
 # Dino Cap: plan to match the real game
 
+> **Status (2026-10-02): all six phases are implemented** on branch `feat/dino-cap-1-fidelity`.
+> The art is original, code-drawn and inked (no Triniti assets); real hand-drawn sprite sheets would
+> be the next step up in fidelity. Still open: the unconfirmed items at the end of this file.
+
 Written 2026-10-02 from actual footage of Dino Cap 1 (Triniti Interactive, 2010; last version 1.9.8,
 App Store id 371264271). The first build was made from text and Dino Cap 2 screenshots only.
 `docs/RESEARCH.md` says playback was unavailable, which is why the remake drifted toward Dino Cap 2.

@@ -82,6 +82,7 @@ export class World {
     this.events = [];
     this.input = { left: false, right: false, fire: false, melee: false, swap: false, act: false, green: false };
     this.prevInput = { ...this.input };
+    this.taps = new Set();
     this.kills = 0;
     this.earned = 0;
     this.runTime = 0;
@@ -199,7 +200,9 @@ export class World {
     dt = Math.min(dt, 0.05);
     const inp = this.input,
       prev = this.prevInput;
-    const pressed = (k) => inp[k] && !prev[k];
+    // a tap that went down and up between two frames still counts once
+    const taps = this.taps;
+    const pressed = (k) => taps.has(k) || (inp[k] && !prev[k]);
     this.fadeEffects(dt);
     if (this.status === "card") {
       this.cardTimer -= dt;
@@ -217,6 +220,12 @@ export class World {
       else this.stepStreet(dt, pressed);
     }
     this.prevInput = { ...inp };
+    taps.clear();
+  }
+
+  // the app calls this on every key-down / pointer-down
+  tap(k) {
+    this.taps.add(k);
   }
 
   fadeEffects(dt) {
@@ -277,8 +286,9 @@ export class World {
       if (door) return this.enterShop(door.door);
     } else if (pressed("swap") || pressed("green")) this.swap();
 
-    if (inp.melee && p.meleeCool <= 0) this.doMelee();
-    else if (inp.fire && p.fireCool <= 0) {
+    const want = (k) => inp[k] || this.taps.has(k);
+    if (want("melee") && p.meleeCool <= 0) this.doMelee();
+    else if (want("fire") && p.fireCool <= 0) {
       if (this.ammo() > 0) this.fire();
       else if (p.meleeCool <= 0) {
         if (pressed("fire")) this.emit("empty");
@@ -516,7 +526,7 @@ export class World {
     const p = this.player;
     d.state = "latched";
     d.side = Math.sign(d.x - p.x) || -p.facing;
-    d.offset = 16 + this.rand() * 38 + (d.type === "brute" ? 20 : 0);
+    d.offset = 34 + this.rand() * 40 + (d.type === "brute" ? 26 : 0);
     d.biteCool = 0.12;
     d.vx = 0;
   }

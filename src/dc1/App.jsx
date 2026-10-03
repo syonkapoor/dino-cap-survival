@@ -108,10 +108,13 @@ function Toggle({ label, on, onChange }) {
 
 // Hold-to-act touch control. Pointer capture keeps a finger that slides off
 // the button from leaving the input stuck on.
-function Pad({ name, className, label, input, children }) {
+function Pad({ name, className, label, input, onTap, children }) {
   const set = (v) => (e) => {
     e.preventDefault();
-    if (v) e.currentTarget.setPointerCapture?.(e.pointerId);
+    if (v) {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+      onTap?.(name);
+    }
     if (input.current) input.current[name] = v;
   };
   return (
@@ -233,6 +236,7 @@ export default function App() {
       if (k) {
         e.preventDefault();
         input.current[k] = true;
+        if (!e.repeat) world.current?.tap(k);
       }
     };
     const up = (e) => {
@@ -307,6 +311,7 @@ export default function App() {
     setConfirmReset(false);
   };
 
+  const tap = (k) => world.current?.tap(k);
   const canResume = profile.level > 1 || profile.cash > 0 || Object.keys(profile.owned).length > 2;
   const inGame = ["playing", "paused", "dead"].includes(screen);
 
@@ -457,20 +462,20 @@ export default function App() {
       {screen === "playing" && (
         <div className="dc-controls">
           <button className="dc-pause" aria-label="Pause" onClick={pause} />
-          <Pad name="left" className="dc-left" label="Walk left" input={input}>
+          <Pad name="left" className="dc-left" label="Walk left" input={input} onTap={tap}>
             <svg viewBox="0 0 100 100" aria-hidden="true">
               <path d="M88 10 L12 50 L88 90Z" />
             </svg>
           </Pad>
-          <Pad name="right" className="dc-right" label="Walk right" input={input}>
+          <Pad name="right" className="dc-right" label="Walk right" input={input} onTap={tap}>
             <svg viewBox="0 0 100 100" aria-hidden="true">
               <path d="M12 10 L88 50 L12 90Z" />
             </svg>
           </Pad>
-          <Pad name="melee" className="dc-blue" label="Melee" input={input} />
-          <Pad name="fire" className="dc-orange" label="Fire" input={input} />
+          <Pad name="melee" className="dc-blue" label="Melee" input={input} onTap={tap} />
+          <Pad name="fire" className="dc-orange" label="Fire" input={input} onTap={tap} />
           <span ref={green} className="dc-green-wrap" data-pulse="0" aria-label="Swap weapon">
-            <Pad name="green" className="dc-green" label="Swap weapon or enter" input={input}>
+            <Pad name="green" className="dc-green" label="Swap weapon or enter" input={input} onTap={tap}>
               <svg viewBox="0 0 100 100" aria-hidden="true">
                 <path d="M30 40 A22 22 0 0 1 70 40 M70 60 A22 22 0 0 1 30 60" />
                 <path d="M62 30 L72 40 L60 46 M38 70 L28 60 L40 54" />

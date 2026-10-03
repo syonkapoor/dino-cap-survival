@@ -342,3 +342,20 @@ test("profile normalisation keeps progress and repairs bad saves", () => {
   assert.equal(p.melee, "club");
   assert.deepEqual(normalizeProfile(null), baseProfile());
 });
+
+test("a tap that goes down and up between frames is not lost", () => {
+  const w = city();
+  w.dinos = [];
+  w.spawnTimer = 1e9;
+  w.player.x = w.street.buildings[1].door.x;
+  w.tap("act"); // keydown + keyup before the next frame
+  w.step(1 / 60);
+  assert.equal(w.scene, "shop");
+  const usp = w.ammo("usp");
+  w.scene = "street";
+  w.shop = null;
+  w.player.x = 3000;
+  w.tap("fire");
+  w.step(1 / 60);
+  assert.equal(w.ammo("usp"), usp - 1, "a quick tap still fires once");
+});

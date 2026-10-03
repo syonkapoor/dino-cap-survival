@@ -571,8 +571,33 @@ export function drawCorpse(c, type, dir, burnt) {
   c.save();
   c.scale(dir * look.scale, look.scale);
   const col = burnt ? "#3a3030" : look.body;
-  blob(c, [[-110, -14], [-60, -22], [-30, -40], [20, -46], [46, -30], [44, -6], [-40, -4], [-104, -6]]);
+  // a leg kicked up in the air, then the slumped body and tail
+  c.save();
+  c.translate(-6, -40);
+  c.rotate(-0.5);
+  blob(c, [[-8, 0], [8, 0], [10, -34], [2, -40], [-8, -32]]);
+  inked(c, col, 3);
+  blob(c, [[-6, -38], [14, -46], [18, -40], [-2, -32]]);
+  inked(c, col, 2.5);
+  c.restore();
+  blob(c, [[-104, -10], [-60, -20], [-34, -48], [6, -62], [38, -50], [48, -26], [40, -4], [-40, -2], [-100, -4]]);
   inked(c, col, 3.5);
+  if (!burnt) {
+    c.strokeStyle = look.stripe;
+    c.lineWidth = 4;
+    for (let i = 0; i < 3; i++) {
+      c.beginPath();
+      c.moveTo(-18 + i * 16, -52 + i * 2);
+      c.quadraticCurveTo(-14 + i * 16, -36, -18 + i * 16, -14);
+      c.stroke();
+    }
+  }
+  for (let i = 0; i < 4; i++) {
+    const x = -24 + i * 14,
+      y = -56 - Math.sin(i) * 4;
+    poly(c, [[x - 6, y + 4], [x, y - 8], [x + 6, y + 4]]);
+    inked(c, look.spike, 2);
+  }
   ellipse(c, 44, -20, 10, 13);
   inked(c, "#9b1119", 2.5);
   ellipse(c, 46, -20, 5, 7);

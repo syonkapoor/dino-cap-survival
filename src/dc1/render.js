@@ -619,8 +619,9 @@ export class Renderer {
         c.scale(0.8, 0.8);
         drawMedBottle(c);
       } else {
-        drawAmmoIcon(c, world.gun.family, -10, 0, 0.8);
-        outlinedText(c, "×", 14, 10, 22, "#ffffff", { width: 4 });
+        const n = Math.max(8, Math.round((world.gun.ammoPack || 30) * 0.4));
+        drawAmmoIcon(c, world.gun.family, -16, 0, 0.8);
+        outlinedText(c, `×${n}`, 4, 10, 24, "#ffffff", { width: 4, align: "left" });
       }
       c.restore();
     }
@@ -968,20 +969,21 @@ export class Renderer {
     if (world.mode === "city" || world.scene === "shop") {
       outlinedText(c, `$${world.profile.cash}`, W / 2, 60, 54, "#ffe23a", { width: 8 });
     } else {
+      // a dino head with a red X through it
       c.save();
-      c.translate(W / 2 - 74, 38);
-      c.scale(0.32, 0.32);
-      c.translate(-40, 110);
-      drawGib(c, "head", 2.2, 0, "raptor");
-      c.restore();
-      c.save();
+      c.translate(W / 2 - 76, 38);
+      drawGib(c, "head", 1.15, 0, "raptor");
+      c.strokeStyle = INK;
+      c.lineWidth = 11;
+      c.lineCap = "round";
+      c.beginPath();
+      c.moveTo(-20, -18);
+      c.lineTo(20, 18);
+      c.moveTo(20, -18);
+      c.lineTo(-20, 18);
+      c.stroke();
       c.strokeStyle = "#e3242b";
       c.lineWidth = 6;
-      c.beginPath();
-      c.moveTo(W / 2 - 92, 20);
-      c.lineTo(W / 2 - 58, 52);
-      c.moveTo(W / 2 - 58, 20);
-      c.lineTo(W / 2 - 92, 52);
       c.stroke();
       c.restore();
       outlinedText(c, String(world.kills), W / 2 - 46, 58, 50, "#ffe23a", { align: "left", width: 8 });

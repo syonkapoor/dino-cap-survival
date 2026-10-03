@@ -1,59 +1,53 @@
-# Dino Cap — Classic & Sequel
+# Dino Cap
 
-A playable React + native HTML5 Canvas recreation of the Triniti Interactive side-scrolling dinosaur games, with selectable Classic and Sequel modes and original procedural cartoon art.
+A browser remake of **Dino Cap** (Triniti Interactive, 2010), the side-scrolling iPhone shooter that
+stopped running when iOS dropped 32-bit apps. Rebuilt from gameplay footage (see
+`docs/FIDELITY-PLAN.md`). All art and sound are original, drawn and synthesised in code.
 
 ## Run
 
 ```sh
 npm install
 npm run dev -- --port 3000
+npm test        # engine + legacy tests
+npm run build   # static site in dist/
 ```
 
-```sh
-npm test
-npm run build
-```
-
-The production build is in `dist/` and can be served by any static web host.
+The earlier Dino Cap 2-style build is kept unchanged at `?sequel`.
 
 ## Play
 
-- **Classic:** City Sweep (kill missions + Ammo Country) or Jungle Blitz (endless survival + random weapon drops).
-- **Sequel:** kill, timed survival, distance, and egg missions; or endless Arena.
-- Choose among six landscapes in Sequel. Unlock five heroes in the Armory; their health can be upgraded.
-- Earn cash and EXP by defeating dinosaurs. Every level restores 25 HP. Health packs restore 25 HP, capped at max health. Ammo crates refill multiple weapon types.
-- Spend cash on 25 standard weapons, four super weapons, ammo refills, +2 damage upgrades, and mercenaries. Soldier costs 15,000; Force Knight costs 25,000.
+- **CITY GRIND:** numbered night-time street levels that go on forever. Each opens with a LEVEL card
+  and ends with LEVEL CLEAR! once the clock runs out and the street is quiet. Loot lit doorways for
+  cash, ammo and medicine. Walk into **AMMO-COUNTRY** to buy, upgrade and reload.
+- **JUNGLE BLITZ:** endless survival. Weapon crates, ammo and medicine fall from the sky.
+- **RESUME** continues your City Grind save.
+
+The dinosaurs (blue raptors, tan horned raptors, green brutes) only **bite**. They lunge, latch on
+and pile onto the kid, and every latched dino keeps chewing until you shake it off.
 
 ### Controls
 
-| Input                     | Action                                         |
-| ------------------------- | ---------------------------------------------- |
-| A/D or left/right arrows  | Move                                           |
-| Mouse + hold left-click   | Aim and fire                                   |
-| Q/E                       | Cycle unlocked weapons                         |
-| 1–4                       | Select initial weapons                         |
-| J / blue action circle    | Melee                                          |
-| K / Space / orange circle | Fire                                           |
-| L / green circle          | Special attack (Sequel; 3 energy, 3s cooldown) |
-| F near Ammo Country       | Enter shop (City Sweep)                        |
-| Escape / pause icon       | Pause and resume                               |
+| Touch | Keyboard | Action |
+| --- | --- | --- |
+| ◀ ▶ red arrows | A/D or ←/→ | Walk. You fire the way you face; there is no aiming |
+| Orange | K, Space or X | Fire (in the shop: buy or upgrade) |
+| Blue | J or Z | Melee swing, which shakes off every biting dino (in the shop: buy ammo) |
+| Green | Q/E/Tab, or W/↑/F at a door | Swap gun, or enter/leave Ammo-Country |
+| Pause | Esc or P | Pause |
 
-The red arrows and circular actions support pointer capture and simultaneous touch input. Keyboard/mouse controls work alongside them. Pause to switch any unlocked weapon, visit the Armory, or return to the menu.
+In the shop, stand under a gun on the wall: orange buys or upgrades it, blue buys ammo. Walk out the
+left side to leave.
 
-Cash, level, EXP, ammunition, unlocked weapons, weapon upgrades, heroes, hired allies, mission day, and best kills persist in localStorage. Saves from the first version migrate automatically. Health, elapsed time, waves and run kills reset each run. Random Jungle Blitz weapon unlocks last only for that run.
+## Code
 
-## Architecture
-
-- `src/data.js`: weapon/hero/mode definitions, versioned profile schema and save migration
-- `src/game.js`: frame-rate-independent simulation, combat, enemy/ally AI, objectives, sound and callbacks
-- `src/render.js`: cached parallax environment layers, procedural hero/dinosaur/weapon rendering
-- `src/main.jsx`: React application, screen transitions, input binding and persistent profile
-- `src/Hud.jsx`: gameplay HUD and touch controls
-- `src/Shop.jsx`: weapon, ammunition, hero and mercenary purchases
-- `src/Art.jsx`: reusable Canvas portraits and weapon illustrations
-- `src/style.css`: responsive arcade interface, landscape and portrait layouts
-- `tests/game.test.js`: regression checks for combat, progression, objectives, saves and pause behavior
-
-## Reference fidelity
-
-See [docs/RESEARCH.md](docs/RESEARCH.md) for inspected sources, observed features, reconstructed details, and limitations. The visual layout and documented game formats have been recreated; hidden balance, original assets, full animation and unobserved menus are not claimed to be exact. Research screenshots are stored for reference and are not used as production artwork. No backend, paid purchases, or external sprite assets are required. Google Fonts are optional, with system fallbacks.
+- `src/dc1/engine.js`: the simulation, with no DOM. Bite cycle (approach, wind-up, lunge, latch,
+  chomp), lane firing per weapon family, melee shove, persistent gore, the storefront street,
+  doorway loot, level flow, the walk-in shop and Jungle Blitz drops.
+- `src/dc1/data.js`: 25 weapons with rack prices, dinosaur stats and scaling, buildings, the save format.
+- `src/dc1/art.js`: inked sprites for the kid, three dinos, gore, guns, clerk and pickups.
+- `src/dc1/render.js`: city, jungle and shop scenes, effects, HUD and level cards.
+- `src/dc1/audio.js`: synthesised sound effects and music.
+- `src/dc1/App.jsx`: loading, title, records, trophies, help, settings, touch controls, pause and death screens.
+- `tests/dc1.test.js`: engine tests. `tests/legacy.test.js`: the kept Sequel build.
+- `?debug` exposes the live world as `window.__dc` for play-testing.
