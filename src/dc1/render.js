@@ -31,6 +31,8 @@ import {
   drawSmear,
   drawWallSplat,
   drawDinoHead,
+  setGore,
+  GORE,
 } from "./art.js";
 
 // the video's camera is close: characters are about a third of the screen tall
@@ -590,6 +592,7 @@ export class Renderer {
 
   draw(world, dt = 1 / 60) {
     const c = this.c;
+    setGore(world ? world.profile.gore !== false : true);
     this.t += dt;
     c.setTransform(this.k * this.dpr, 0, 0, this.k * this.dpr, 0, 0);
     c.imageSmoothingEnabled = true;
@@ -628,7 +631,10 @@ export class Renderer {
       const x = d.x - cam;
       if (x < -120 || x > W + 120) continue;
       c.save();
-      if (d.kind === "wall") {
+      if (d.kind === "wall" && !GORE.on) {
+        c.restore();
+        continue;
+      } else if (d.kind === "wall") {
         c.translate(x, SIDEWALK_TOP - d.h);
         c.rotate(d.rot * 0.2);
         drawWallSplat(c, d.size, d.seed);
@@ -637,7 +643,9 @@ export class Renderer {
         if (d.kind === "pool") drawPool(c, d.size, d.seed);
         else if (d.kind === "splat") drawSplat(c, d.size, d.seed);
         else if (d.kind === "smear") drawSmear(c, d.size, d.rot, d.seed);
-        else {
+        else if (!GORE.on) {
+          /* reduced gore: no body parts on the ground */
+        } else {
           c.scale(CHAR, CHAR);
           // a head that landed lies on its side
           drawGib(c, d.kind, d.size * 0.9, d.kind === "eye" ? 0 : d.kind === "head" ? (d.rot > 0 ? 1.4 : -1.4) : d.rot, d.type, d.seed);
@@ -1211,6 +1219,10 @@ export class Renderer {
     for (const g of world.gibs) {
       c.save();
       c.translate(g.x - cam, GROUND_Y + g.y);
+      if (!GORE.on && g.kind !== "drop") {
+        c.restore();
+        continue;
+      }
       if (g.kind === "drop") {
         drawDrop(c, g);
         c.restore();

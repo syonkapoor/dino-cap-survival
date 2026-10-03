@@ -198,11 +198,62 @@ export class World {
     Object.assign(this.player, { x: 200, facing: 1, hp: this.player.maxHp, grace: 0, hurt: 0, blood: 0 });
     this.t = 0;
     this.levelKills = 0;
+    this.levelEarned = 0;
+    this.doubled = false;
     this.duration = levelDuration(level);
     this.spawnTimer = 1.5;
     this.status = "card";
     this.cardTimer = CARD_TIME;
     this.emit("levelCard", { level });
+  }
+
+  // ---------- after LEVEL CLEAR: the app may hold here to offer 2x cash ----------
+  nextLevel() {
+    if (this.status !== "clear") return false;
+    this.profile.level = this.level + 1;
+    this.profile.best.cityLevel = Math.max(this.profile.best.cityLevel, this.level + 1);
+    this.emit("save");
+    this.startLevel(this.level + 1);
+    return true;
+  }
+  // double what this level paid, once (the rewarded-ad offer)
+  doubleLevelCash() {
+    if (this.status !== "clear" || this.doubled) return 0;
+    this.doubled = true;
+    const bonus = this.levelEarned;
+    this.addCash(bonus);
+    this.emit("cash");
+    this.emit("save");
+    return bonus;
+  }
+  // one second chance per run (the rewarded-ad offer)
+  revive() {
+    if (this.status !== "dead" || this.revived || this.ended) return false;
+    const p = this.player;
+    this.revived = true;
+    this.status = "playing";
+    p.hp = p.maxHp;
+    p.grace = 2.5;
+    p.hurt = 0;
+    for (const d of this.dinos) {
+      d.state = "stagger";
+      d.timer = 0.6;
+      d.x = p.x + (Math.sign(d.x - p.x) || 1) * (380 + Math.abs(d.x - p.x) * 0.2);
+    }
+    this.emit("revive");
+    return true;
+  }
+  // record the run; die() calls it unless the app defers it to offer a revive
+  endRun() {
+    if (this.ended || !this.result) return;
+    this.ended = true;
+    const b = this.profile.best;
+    if (this.mode === "blitz") {
+      b.blitzKills = Math.max(b.blitzKills, this.kills);
+      b.blitzTime = Math.max(b.blitzTime, Math.floor(this.t));
+    }
+    this.profile.runs = [this.result, ...(this.profile.runs || [])].slice(0, 10);
+    this.emit("save");
   }
 
   // ---------- main step ----------
@@ -219,13 +270,9 @@ export class World {
       if (this.cardTimer <= 0) this.status = "playing";
     } else if (this.status === "clear") {
       this.clearTimer -= dt;
-      if (this.clearTimer <= 0) {
-        this.profile.level = this.level + 1;
-        this.profile.best.cityLevel = Math.max(this.profile.best.cityLevel, this.level + 1);
-        this.emit("save");
-        this.startLevel(this.level + 1);
-      }
+      if (this.clearTimer <= 0 && !this.holdOnClear) this.nextLevel();
     } else if (this.status === "playing") {
+
       if (this.scene === "shop") this.stepShop(dt, pressed);
       else this.stepStreet(dt, pressed);
     }
@@ -767,6 +814,7 @@ export class World {
   addCash(n) {
     this.profile.cash += n;
     this.earned += n;
+    this.levelEarned = (this.levelEarned || 0) + n;
   }
 
   swap() {
@@ -782,16 +830,9 @@ export class World {
   die() {
     if (this.status === "dead") return;
     this.status = "dead";
-    const b = this.profile.best;
-    if (this.mode === "blitz") {
-      b.blitzKills = Math.max(b.blitzKills, this.kills);
-      b.blitzTime = Math.max(b.blitzTime, Math.floor(this.t));
-    }
-    const result = { mode: this.mode, level: this.level, time: this.mode === "blitz" ? this.t : this.runTime, kills: this.kills, earned: this.earned, at: Date.now() };
-    this.profile.runs = [result, ...(this.profile.runs || [])].slice(0, 10);
-    this.result = result;
-    this.emit("dead", result);
-    this.emit("save");
+    this.result = { mode: this.mode, level: this.level, time: this.mode === "blitz" ? this.t : this.runTime, kills: this.kills, earned: this.earned, at: Date.now() };
+    this.emit("dead", { ...this.result, canRevive: !this.revived });
+    if (!this.deferEnd) this.endRun();
   }
 
   // ---------- Gun Barn: a room you walk along, not a menu ----------

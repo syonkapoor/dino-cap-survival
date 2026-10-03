@@ -458,3 +458,78 @@ test("character look is saved and repaired", () => {
   // a girl's hair index past the kid's list is clamped for her own list
   assert.equal(normalizeProfile({ look: { char: "girl", hair: 3 } }).look.hair, 0);
 });
+
+test("revive: one second chance per run, and the run is recorded only once", () => {
+  const prof = baseProfile();
+  const w = new World({ mode: "blitz", profile: prof, seed: 4 });
+  w.deferEnd = true;
+  w.player.hp = 0;
+  w.step(1 / 60);
+  assert.equal(w.status, "dead");
+  assert.equal(prof.runs.length, 0, "deferred: not recorded yet");
+  assert.equal(w.events.find((e) => e.type === "dead").canRevive, true);
+  const near = w.spawn("raptor", 1);
+  near.x = w.player.x + 30;
+  w.latch(near);
+  assert.equal(w.revive(), true);
+  assert.equal(w.status, "playing");
+  assert.equal(w.player.hp, w.player.maxHp);
+  assert.ok(w.player.grace > 0);
+  assert.ok(Math.abs(near.x - w.player.x) > 300 && near.state !== "latched", "biters are shoved away");
+  w.player.hp = 0;
+  w.player.grace = 0;
+  w.drainEvents();
+  w.step(1 / 60);
+  assert.equal(w.events.find((e) => e.type === "dead").canRevive, false);
+  assert.equal(w.revive(), false, "only once");
+  w.endRun();
+  w.endRun();
+  assert.equal(prof.runs.length, 1);
+  // without deferEnd the run is recorded at once, as before
+  const p2 = baseProfile();
+  const w2 = new World({ mode: "blitz", profile: p2, seed: 4 });
+  w2.player.hp = 0;
+  w2.step(1 / 60);
+  assert.equal(p2.runs.length, 1);
+});
+
+test("level clear can wait for the player; 2x cash pays the level's earnings once", () => {
+  const w = city();
+  w.holdOnClear = true;
+  w.dinos = [];
+  w.spawnTimer = 1e9;
+  const d = place(w, "raptor", w.player.x + 100);
+  w.damage(d, 999, 10);
+  const earned = w.levelEarned;
+  assert.ok(earned > 0);
+  w.t = w.duration + 1;
+  w.step(1 / 60);
+  assert.equal(w.status, "clear");
+  run(w, 10);
+  assert.equal(w.status, "clear", "holds until the player moves on");
+  const cash = w.profile.cash;
+  assert.equal(w.doubleLevelCash(), earned);
+  assert.equal(w.doubleLevelCash(), 0, "once");
+  assert.equal(w.profile.cash, cash + earned);
+  assert.equal(w.nextLevel(), true);
+  assert.equal(w.level, 2);
+  assert.equal(w.levelEarned, 0);
+  assert.equal(w.doubleLevelCash(), 0, "not outside LEVEL CLEAR");
+});
+
+test("interstitials: never in the first session, at most every 2 levels and 2 minutes", async () => {
+  const { shouldShowInterstitial } = await import("../src/dc1/ads.js");
+  const ok = { levelsSinceAd: 2, msSinceAd: 130_000, sessions: 2 };
+  assert.equal(shouldShowInterstitial(ok), true);
+  assert.equal(shouldShowInterstitial({ ...ok, sessions: 1 }), false);
+  assert.equal(shouldShowInterstitial({ ...ok, levelsSinceAd: 1 }), false);
+  assert.equal(shouldShowInterstitial({ ...ok, msSinceAd: 60_000 }), false);
+  assert.equal(shouldShowInterstitial({ ...ok, removeAds: true }), false);
+});
+
+test("gore and session settings are saved", () => {
+  const p = normalizeProfile({ gore: false, sessions: 5 });
+  assert.equal(p.gore, false);
+  assert.equal(p.sessions, 5);
+  assert.equal(normalizeProfile({}).gore, true);
+});

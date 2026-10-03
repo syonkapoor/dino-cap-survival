@@ -378,7 +378,7 @@ function splat(c, x, y, r, seed) {
     pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
   }
   trace(c, pts, true);
-  c.fillStyle = "#a3101a";
+  c.fillStyle = BLOOD;
   c.fill();
 }
 
@@ -949,7 +949,7 @@ export function drawCorpse(c, type, dir, burnt, k = 1, t = 0) {
   c.scale(1, 1 - 0.42 * k);
   const d = { type, dir, state: "stagger", phase: 0, id: 0, flash: 0 };
   if (burnt) setTint("#3a3030");
-  drawDino(c, d, t, { headless: true });
+  drawDino(c, d, t, { headless: GORE.on });
   if (burnt) setTint(null);
   c.restore();
 }
@@ -991,10 +991,10 @@ export function drawPool(c, size, seed) {
   c.save();
   c.scale(size, size);
   const r = (k) => ((Math.sin(seed * 9.1 + k * 2.3) + 1) / 2) * 10;
-  c.fillStyle = "#7a0911";
+  c.fillStyle = BLOOD_D;
   blob(c, [[-62 - r(1), 1], [-30, -8 - r(2) * 0.3], [12, -9], [56 + r(3), -3], [44, 7], [0, 9 + r(4) * 0.3], [-48, 7]]);
   fillPlain(c);
-  c.fillStyle = "#a50f19";
+  c.fillStyle = BLOOD;
   blob(c, [[-40, 0], [-10, -5], [30, -4], [26, 3], [-20, 4]]);
   fillPlain(c);
   c.fillStyle = "rgba(255,190,190,.55)";
@@ -1104,9 +1104,16 @@ export function drawMedBottle(c) {
 }
 
 // ---------------------------------------------------------------- blood
-const BLOOD = "#a50f19",
+// "reduce gore" swaps red for dark ink splashes and keeps bodies whole
+export const GORE = { on: true };
+let BLOOD = "#a50f19",
   BLOOD_D = "#6d070d",
   BLOOD_L = "#d42a33";
+export function setGore(on) {
+  if (GORE.on === on) return;
+  GORE.on = on;
+  [BLOOD, BLOOD_D, BLOOD_L] = on ? ["#a50f19", "#6d070d", "#d42a33"] : ["#3b3546", "#2a2533", "#57506a"];
+}
 // a fan of streaks and drops thrown in one direction (the spray in the footage)
 export function drawSpray(c, sp) {
   const t = 1 - sp.life / sp.max;

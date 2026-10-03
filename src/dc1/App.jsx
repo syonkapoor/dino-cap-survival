@@ -3,6 +3,7 @@ import { List, Trophy, HelpCircle, Settings as Gear, X } from "lucide-react";
 import { World } from "./engine.js";
 import { Renderer } from "./render.js";
 import { Sound } from "./audio.js";
+import { adsAvailable, initAds, showRewarded, maybeInterstitial } from "./ads.js";
 import { baseProfile, loadProfile, normalizeProfile, saveProfile, WEAPONS, MAPS, BLITZ_MAPS, CHARACTERS, SKINS, OUTFITS, SHOES, BOWS } from "./data.js";
 import "./dc1.css";
 
@@ -248,6 +249,8 @@ export default function App() {
   const [confirmNew, setConfirmNew] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [portrait, setPortrait] = useState(false);
+  const [offer, setOffer] = useState(null); // "revive" | "clear" while an ad offer is on screen
+  const [adBusy, setAdBusy] = useState(false);
   const live = useRef(profile); // the object the engine mutates
   const canvas = useRef(null),
     stage = useRef(null),
@@ -306,11 +309,17 @@ export default function App() {
             deadTimer = setTimeout(() => {
               deadTimer = null;
               setResult(e);
+              if (e.canRevive && adsAvailable()) {
+                setOffer("revive");
+                return;
+              }
+              w.endRun();
               persist();
               setScreen("dead");
               sound.current.stopMusic();
               sound.current.stopAmbience();
             }, 1400);
+          if (e.type === "levelClear" && w.holdOnClear) setTimeout(() => setOffer("clear"), 900);
         }
         if (w.player.hp > 0 && w.player.hp / w.player.maxHp < 0.35 && w.scene === "street") sound.current.heartbeat();
         if (green.current) {
@@ -332,6 +341,13 @@ export default function App() {
       sound.current.stopMusic();
       sound.current.stopAmbience();
     };
+  }, [persist]);
+
+  // one session per launch; ads stay out of a player's first session
+  useEffect(() => {
+    live.current.sessions = (live.current.sessions || 0) + 1;
+    persist();
+    initAds();
   }, [persist]);
 
   // browsers (iOS especially) only allow audio to start inside a user gesture
@@ -393,6 +409,10 @@ export default function App() {
     sound.current.ensure();
     if (map) live.current.map = map;
     const w = new World({ mode, profile: live.current, seed: (Math.random() * 2 ** 31) | 0, viewW: renderer.current.W, map: map || live.current.map });
+    // with ads, LEVEL CLEAR waits for the player and death offers a revive first
+    w.holdOnClear = true;
+    w.deferEnd = adsAvailable();
+    setOffer(null);
     world.current = w;
     input.current = w.input;
     renderer.current.cam = 0;
@@ -427,6 +447,38 @@ export default function App() {
     sound.current.stopMusic();
     sound.current.stopAmbience();
     setScreen("title");
+  };
+  const giveUp = () => {
+    const w = world.current;
+    setOffer(null);
+    w.endRun();
+    persist();
+    setScreen("dead");
+    sound.current.stopMusic();
+    sound.current.stopAmbience();
+  };
+  const watchToRevive = async () => {
+    setAdBusy(true);
+    sound.current.stopMusic();
+    const ok = await showRewarded();
+    setAdBusy(false);
+    if (ok && world.current.revive()) {
+      setOffer(null);
+      if (live.current.music) sound.current.startMusic();
+    } else giveUp();
+  };
+  const nextLevel = async () => {
+    setOffer(null);
+    await maybeInterstitial(live.current.sessions);
+    world.current?.nextLevel();
+  };
+  const watchToDouble = async () => {
+    setAdBusy(true);
+    const ok = await showRewarded();
+    setAdBusy(false);
+    if (ok) world.current.doubleLevelCash();
+    persist();
+    nextLevel();
   };
   const setLook = (look) => {
     live.current.look = look;
@@ -584,6 +636,7 @@ export default function App() {
                 <Panel title="SETTINGS" onClose={() => (setPanel(null), setConfirmReset(false))}>
                   <Toggle label="FX" on={profile.fx} onChange={(v) => setSetting("fx", v)} />
                   <Toggle label="MUSIC" on={profile.music} onChange={(v) => setSetting("music", v)} />
+                  <Toggle label="GORE" on={profile.gore} onChange={(v) => setSetting("gore", v)} />
                   <button className="dc-toggle danger" onClick={resetAll}>
                     <span>{confirmReset ? "ERASE EVERYTHING? PRESS AGAIN" : "RESET ALL PROGRESS"}</span>
                   </button>
@@ -637,11 +690,39 @@ export default function App() {
         </div>
       )}
 
+      {screen === "playing" && offer === "revive" && (
+        <section className="dc-offer" role="dialog" aria-label="Revive">
+          <h2>KEEP GOING?</h2>
+          <button className="dc-offer-yes" disabled={adBusy} onClick={watchToRevive}>
+            {adBusy ? "LOADING…" : "▶ WATCH AD TO REVIVE"}
+          </button>
+          <button className="dc-offer-no" disabled={adBusy} onClick={giveUp}>
+            NO THANKS
+          </button>
+        </section>
+      )}
+      {screen === "playing" && offer === "clear" && (
+        <section className="dc-offer dc-offer-clear" role="dialog" aria-label="Level clear">
+          <p>
+            THIS LEVEL: <b>${world.current?.levelEarned ?? 0}</b>
+          </p>
+          {adsAvailable() && (
+            <button className="dc-offer-yes" disabled={adBusy} onClick={watchToDouble}>
+              {adBusy ? "LOADING…" : "▶ WATCH AD FOR 2× CASH"}
+            </button>
+          )}
+          <button className="dc-offer-no" disabled={adBusy} onClick={nextLevel}>
+            NEXT LEVEL ▶
+          </button>
+        </section>
+      )}
+
       {screen === "paused" && (
         <section className="dc-paused" role="dialog" aria-label="Paused">
           <h2>PAUSED</h2>
           <Toggle label="FX" on={profile.fx} onChange={(v) => setSetting("fx", v)} />
           <Toggle label="MUSIC" on={profile.music} onChange={(v) => setSetting("music", v)} />
+          <Toggle label="GORE" on={profile.gore} onChange={(v) => setSetting("gore", v)} />
           <div className="dc-paused-row">
             <button onClick={quit}>MENU</button>
             <button className="dc-back" onClick={resume}>

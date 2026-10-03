@@ -137,6 +137,8 @@ export function baseProfile() {
     music: true,
     look: baseLook(),
     map: "jungle",
+    gore: true,
+    sessions: 0,
   };
 }
 
@@ -158,6 +160,8 @@ export function normalizeProfile(raw) {
   p.runs = Array.isArray(p.runs) ? p.runs.slice(0, 10) : [];
   p.look = normalizeLook(raw.look);
   if (!MAPS[p.map]) p.map = "jungle";
+  p.gore = p.gore !== false;
+  p.sessions = Math.max(0, Math.floor(Number(p.sessions) || 0));
   return p;
 }
 
