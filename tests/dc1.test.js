@@ -533,3 +533,23 @@ test("gore and session settings are saved", () => {
   assert.equal(p.sessions, 5);
   assert.equal(normalizeProfile({}).gore, true);
 });
+
+test("ads never await a Capacitor plugin proxy directly (it is a thenable and hangs)", async () => {
+  const src = (await import("node:fs")).readFileSync(new URL("../src/dc1/ads.js", import.meta.url), "utf8");
+  assert.ok(!/return\s+admob\.AdMob|return\s+m\.AdMob|=\s*await\s+plugin\(\)/.test(src));
+  // a proxy that answers `then` like Capacitor's: awaiting the wrapper must not touch it
+  let touched = false;
+  const proxy = new Proxy({}, { get: (_, k) => (k === "then" ? ((touched = true), () => {}) : () => Promise.resolve()) });
+  const wrapper = await (async () => ({ AdMob: proxy }))();
+  assert.equal(wrapper.AdMob, proxy);
+  assert.equal(touched, false);
+});
+
+test("ads: initialize() comes before the consent form (the plugin wires consent up inside initialize)", async () => {
+  const src = (await import("node:fs")).readFileSync(new URL("../src/dc1/ads.js", import.meta.url), "utf8");
+  const body = src.slice(src.indexOf("export async function initAds"));
+  const init = body.indexOf("AdMob.initialize("),
+    consent = body.indexOf("AdMob.showConsentForm("),
+    att = body.indexOf("AdMob.requestTrackingAuthorization(");
+  assert.ok(init > 0 && init < consent && consent < att, `${init} ${consent} ${att}`);
+});

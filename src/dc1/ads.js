@@ -35,30 +35,43 @@ let ready = false;
 let lastInterstitial = 0;
 let levelsSinceAd = 0;
 
-async function plugin() {
-  if (admob) return admob;
-  const m = await import("@capacitor-community/admob");
-  admob = m.AdMob;
+// Load the plugin once. Capacitor plugin objects are Proxies that answer
+// every property, `then` included, so one must never be the value an async
+// function resolves with: `await` would treat it as a thenable, call the
+// native "then" method and hang forever. Hence the { AdMob } wrapper.
+async function loadPlugin() {
+  if (!admob) admob = { AdMob: (await import("@capacitor-community/admob")).AdMob };
   return admob;
 }
+
 
 export const adsAvailable = () => native() || simulated();
 
 // once at launch on native: tracking prompt (iOS), consent form (EU), SDK init
 export async function initAds() {
   if (!native() || ready) return;
+  console.info("[ads] init");
   try {
-    const AdMob = await plugin();
-    try {
-      const st = await AdMob.trackingAuthorizationStatus();
-      if (st.status === "notDetermined") await AdMob.requestTrackingAuthorization();
-    } catch {}
+    const { AdMob } = await loadPlugin();
+    // The plugin wires up its consent and ad helpers inside initialize(), so
+    // it has to come first; it requests no ads. Then Google's order: the
+    // consent form (EU/UK), then Apple's tracking prompt, then load ads.
+    await AdMob.initialize({ initializeForTesting: USING_TEST_ADS });
     try {
       const info = await AdMob.requestConsentInfo();
       if (info.isConsentFormAvailable && info.status === "REQUIRED") await AdMob.showConsentForm();
-    } catch {}
-    await AdMob.initialize({ initializeForTesting: USING_TEST_ADS });
+    } catch (e) {
+      console.warn("[ads] consent form", e?.message || e);
+    }
+    try {
+      const st = await AdMob.trackingAuthorizationStatus();
+      console.info("[ads] tracking", st.status);
+      if (st.status === "notDetermined") await AdMob.requestTrackingAuthorization();
+    } catch (e) {
+      console.warn("[ads] tracking prompt failed", e?.message || e);
+    }
     ready = true;
+    console.info("[ads] ready", USING_TEST_ADS ? "(test ads)" : "");
     prepareRewarded();
   } catch (e) {
     console.warn("ads unavailable", e);
@@ -68,7 +81,7 @@ export async function initAds() {
 const unit = (kind) => (AD_UNITS[platform()] || AD_UNITS.ios)[kind];
 async function prepareRewarded() {
   try {
-    await (await plugin()).prepareRewardVideoAd({ adId: unit("rewarded") });
+    await (await loadPlugin()).AdMob.prepareRewardVideoAd({ adId: unit("rewarded") });
   } catch {}
 }
 
@@ -87,7 +100,7 @@ export async function showRewarded() {
   if (simulated()) return fakeAd("REWARDED");
   if (!native()) return false;
   try {
-    const AdMob = await plugin();
+    const { AdMob } = await loadPlugin();
     if (!ready) await initAds();
     const reward = await AdMob.showRewardVideoAd();
     prepareRewarded();
@@ -109,7 +122,7 @@ export async function maybeInterstitial(sessions) {
   lastInterstitial = Date.now();
   if (simulated()) return fakeAd("INTERSTITIAL");
   try {
-    const AdMob = await plugin();
+    const { AdMob } = await loadPlugin();
     await AdMob.prepareInterstitial({ adId: unit("interstitial") });
     await AdMob.showInterstitial();
     return true;
