@@ -359,3 +359,69 @@ test("a tap that goes down and up between frames is not lost", () => {
   w.step(1 / 60);
   assert.equal(w.ammo("usp"), usp - 1, "a quick tap still fires once");
 });
+
+test("dinosaurs only ever come in from the right", () => {
+  for (const mode of ["city", "blitz"]) {
+    const prof = baseProfile();
+    prof.level = 9;
+    const w = new World({ mode, profile: prof, seed: 5 });
+    w.status = "playing";
+    w.player.hp = w.player.maxHp = 1e9;
+    w.player.x = 3000;
+    const seen = new Set();
+    for (let i = 0; i < 60 * 40; i++) {
+      w.step(1 / 60);
+      for (const d of w.dinos)
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          assert.ok(d.x > w.player.x, `${mode}: dino ${d.id} spawned at ${d.x}, kid at ${w.player.x}`);
+        }
+    }
+    assert.ok(seen.size >= 8, `${mode} spawned ${seen.size}`);
+  }
+});
+
+test("blood: hits spray, droplets land as splats, kills leave a geyser, a smear and the kid gets bloody when bitten", () => {
+  const w = city();
+  w.dinos = [];
+  w.spawnTimer = 1e9;
+  const d = place(w, "raptor", w.player.x + 120);
+  w.damage(d, 5, 40);
+  assert.ok(w.sprays.length > 0);
+  assert.ok(w.gibs.some((g) => g.kind === "drop"));
+  w.damage(d, 999, 40);
+  assert.ok(w.geysers.length === 1);
+  assert.ok(w.decals.some((x) => x.kind === "smear"));
+  run(w, 2);
+  assert.ok(w.decals.some((x) => x.kind === "splat"), "droplets land as splats");
+  assert.equal(w.geysers.length, 0);
+  const r = place(w, "raptor", w.player.x + 30);
+  w.latch(r);
+  run(w, 1.2);
+  assert.ok(w.player.blood > 0);
+  w.startLevel(2);
+  assert.equal(w.player.blood, 0, "cleaned up for the next level");
+});
+
+test("walking makes footsteps", () => {
+  const w = city();
+  w.dinos = [];
+  w.spawnTimer = 1e9;
+  w.drainEvents();
+  w.input.right = true;
+  run(w, 1);
+  assert.ok(w.drainEvents().filter((e) => e.type === "step").length >= 2);
+});
+
+test("bite, lunge and kill events keep their own name (sound depends on it)", () => {
+  const w = city();
+  w.dinos = [];
+  w.spawnTimer = 1e9;
+  w.drainEvents();
+  const d = place(w, "horned", w.player.x + 140);
+  run(w, 1.5);
+  w.damage(d, 1e6, 10);
+  const types = new Set(w.drainEvents().map((e) => e.type));
+  for (const t of ["lunge", "bite", "kill"]) assert.ok(types.has(t), `${t} missing from ${[...types]}`);
+  for (const e of w.events) assert.ok(!["raptor", "horned", "brute"].includes(e.type));
+});

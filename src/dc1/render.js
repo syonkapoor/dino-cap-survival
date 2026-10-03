@@ -11,6 +11,8 @@ import {
   ellipse,
   outlinedText,
   setTint,
+  fillPlain,
+  setShade,
   drawGun,
   drawMelee,
   drawSawBlade,
@@ -23,6 +25,11 @@ import {
   drawClerk,
   drawCrate,
   drawMedBottle,
+  drawSpray,
+  drawDrop,
+  drawSplat,
+  drawSmear,
+  drawWallSplat,
 } from "./art.js";
 
 export const SIDEWALK_TOP = 398;
@@ -95,6 +102,58 @@ function paintSkyline(w, h, seed, far) {
   return cv;
 }
 
+// cross-hatching inside a rectangle: the cheapest way to get the inked-shadow look
+function hatch(c, x, y, w, h, gap = 7, alpha = 0.32, dir = 1) {
+  c.save();
+  c.beginPath();
+  c.rect(x, y, w, h);
+  c.clip();
+  c.strokeStyle = `rgba(18,14,22,${alpha})`;
+  c.lineWidth = 1.4;
+  for (let i = -h; i < w + h; i += gap) {
+    c.beginPath();
+    c.moveTo(x + i, y + h);
+    c.lineTo(x + i + dir * h, y);
+    c.stroke();
+  }
+  c.restore();
+}
+function grime(c, w, h, r, floorY = h) {
+  // water stains and soot running down from ledges
+  for (let i = 0; i < 7; i++) {
+    const x = r() * w,
+      y = r() * floorY * 0.8,
+      rw = 20 + r() * 60,
+      rh = 30 + r() * 90;
+    const g = c.createLinearGradient(x, y, x, y + rh);
+    g.addColorStop(0, "rgba(20,18,16,0.28)");
+    g.addColorStop(1, "rgba(20,18,16,0)");
+    c.fillStyle = g;
+    c.fillRect(x - rw / 2, y, rw, rh);
+  }
+  // cracks
+  c.strokeStyle = "rgba(15,12,14,0.65)";
+  c.lineWidth = 1.6;
+  for (let i = 0; i < 4; i++) {
+    let x = r() * w,
+      y = r() * floorY;
+    c.beginPath();
+    c.moveTo(x, y);
+    for (let k = 0; k < 4; k++) {
+      x += (r() - 0.5) * 22;
+      y += 6 + r() * 14;
+      c.lineTo(x, y);
+    }
+    c.stroke();
+  }
+  // grime along the base
+  const g = c.createLinearGradient(0, h - 40, 0, h);
+  g.addColorStop(0, "rgba(25,20,18,0)");
+  g.addColorStop(1, "rgba(25,20,18,0.45)");
+  c.fillStyle = g;
+  c.fillRect(0, h - 40, w, 40);
+}
+
 const SIGNS = {
   deli: { panel: "#3a63b5", border: "#24418a", text: "#ffd23f", stroke: INK, tilt: -0.05, size: 54 },
   checks: { panel: "#fff4c7", border: "#d6a419", text: "#f2c62b", stroke: "#5b3a12", tilt: 0, size: 40 },
@@ -102,7 +161,7 @@ const SIGNS = {
   laundro: { panel: "#ffffff", border: "#2e8b3a", text: "#e9f6e0", stroke: "#1f6b2a", tilt: 0, size: 38 },
   jumbo: { panel: "#ffffff", border: "#7a3cc8", text: "#8b4fe0", stroke: "#3a1470", tilt: 0, size: 44 },
 };
-const WALLS = { deli: "#535c6c", checks: "#4c5463", ammo: "#4f5868", laundro: "#535a66", jumbo: "#4a5260", motel: "#55505a", house: "#5d7262", lot: null };
+const WALLS = { deli: "#5b6866", checks: "#56605e", ammo: "#5a6461", laundro: "#5f6662", jumbo: "#535d5b", motel: "#605a57", house: "#5c7366", lot: null };
 export const BUILD_H = 330;
 
 function paintBuilding(b) {
@@ -152,9 +211,13 @@ function paintBuilding(b) {
       c.fillStyle = INK;
       c.fillRect(x + 33, h - 180, 4, 60);
     }
+    hatch(c, 44, h - 212, 26, 212, 6, 0.3);
+    hatch(c, w - 80, h - 212, 36, 212, 6, 0.38);
+    hatch(c, 44, h - 212, w - 88, 18, 6, 0.4);
+    grime(c, w, h, r);
     // bush
     blob(c, [[50, h], [40, h - 40], [80, h - 60], [120, h - 40], [118, h]]);
-    inked(c, "#3f6b45", 3);
+    inked(c, "#3f5f42", 3);
     return cv;
   }
   // storefront
@@ -180,9 +243,12 @@ function paintBuilding(b) {
         }
       }
     }
+  hatch(c, 6, top, 30, h - top, 6, 0.34);
+  hatch(c, w - 50, top, 44, h - top, 6, 0.42);
   // ground-floor storefront band
   poly(c, [[6, h - 150], [w - 6, h - 150], [w - 6, h], [6, h]]);
-  inked(c, "#424a58", 4);
+  inked(c, "#47504f", 4);
+  hatch(c, 6, h - 150, w - 12, 16, 5, 0.45);
   // two lit side windows with blinds, as in the footage
   for (const x of [40, w - 120]) {
     poly(c, [[x, h - 112], [x + 80, h - 112], [x + 80, h - 34], [x, h - 34]]);
@@ -191,6 +257,7 @@ function paintBuilding(b) {
     c.fillRect(x + 22, h - 100, 9, 54);
     c.fillRect(x + 50, h - 100, 9, 54);
   }
+  grime(c, w, h, r, h - 150);
   // sign
   const s = SIGNS[b.type];
   if (s) {
@@ -202,7 +269,7 @@ function paintBuilding(b) {
     inked(c, s.border, 4);
     poly(c, [[-sw / 2 + 9, -27], [sw / 2 - 9, -27], [sw / 2 - 9, 27], [-sw / 2 + 9, 27]]);
     c.fillStyle = s.panel;
-    c.fill();
+    fillPlain(c);
     outlinedText(c, b.sign, 0, 2, s.size, s.text, { stroke: s.stroke, base: "middle", width: 6 });
     c.restore();
   } else if (b.type === "motel") {
@@ -339,6 +406,7 @@ export class Renderer {
     }
     if (world.scene === "shop") this.drawShop(world);
     else this.drawStreet(world, dt);
+    this.drawPost(world);
     this.drawHud(world);
     this.drawOverlay(world);
   }
@@ -365,9 +433,17 @@ export class Renderer {
       const x = d.x - cam;
       if (x < -120 || x > W + 120) continue;
       c.save();
-      c.translate(x, GROUND_Y + 6);
-      if (d.kind === "pool") drawPool(c, d.size, d.seed);
-      else drawGib(c, d.kind, d.size * 0.9, d.kind === "eye" ? 0 : d.rot, d.type, d.seed);
+      if (d.kind === "wall") {
+        c.translate(x, SIDEWALK_TOP - d.h);
+        c.rotate(d.rot * 0.2);
+        drawWallSplat(c, d.size, d.seed);
+      } else {
+        c.translate(x, GROUND_Y + 6);
+        if (d.kind === "pool") drawPool(c, d.size, d.seed);
+        else if (d.kind === "splat") drawSplat(c, d.size, d.seed);
+        else if (d.kind === "smear") drawSmear(c, d.size, d.rot, d.seed);
+        else drawGib(c, d.kind, d.size * 0.9, d.kind === "eye" ? 0 : d.rot, d.type, d.seed);
+      }
       c.restore();
     }
     for (const k of world.corpses) {
@@ -432,7 +508,7 @@ export class Renderer {
     c.translate(p.x - cam, GROUND_Y);
     ellipse(c, 0, 4, 30, 7);
     c.fillStyle = "rgba(0,0,0,.25)";
-    c.fill();
+    fillPlain(c);
     const kid = {
       facing: p.facing,
       walk: p.walk,
@@ -443,6 +519,10 @@ export class Renderer {
       melee: world.inv.melee,
       shooting: true,
       dead: world.status === "dead",
+      t: this.t,
+      recoil: p.recoil,
+      blood: p.blood,
+      hurt: p.hurt,
     };
     if (world.status === "dead") {
       c.rotate(-p.facing * 1.35);
@@ -470,8 +550,9 @@ export class Renderer {
     const c = this.c,
       W = this.W;
     const g = c.createLinearGradient(0, 0, 0, SIDEWALK_TOP);
-    g.addColorStop(0, "#3c4357");
-    g.addColorStop(1, "#666d7e");
+    g.addColorStop(0, "#343843");
+    g.addColorStop(0.7, "#5b6068");
+    g.addColorStop(1, "#6f6e6a");
     c.fillStyle = g;
     c.fillRect(0, 0, W, SIDEWALK_TOP);
     // clouds
@@ -479,7 +560,7 @@ export class Renderer {
     for (let i = 0; i < 4; i++) {
       const x = ((i * 520 - cam * 0.1) % (W + 400)) - 200;
       ellipse(c, x < -200 ? x + W + 400 : x, 60 + i * 22, 180, 18);
-      c.fill();
+      fillPlain(c);
     }
     this.tile(c, this.cached("sky-far", () => paintSkyline(1700, 300, 11, true)), cam * 0.22, SIDEWALK_TOP - 300 - 20);
     this.tile(c, this.cached("sky-mid", () => paintSkyline(1500, 220, 23, false)), cam * 0.45, SIDEWALK_TOP - 220);
@@ -503,7 +584,7 @@ export class Renderer {
     c.fillRect(0, SIDEWALK_TOP, W, CURB_Y - SIDEWALK_TOP);
     c.fillStyle = "#857d69";
     c.fillRect(0, SIDEWALK_TOP, W, 6);
-    c.strokeStyle = "rgba(0,0,0,.18)";
+    c.strokeStyle = "rgba(0,0,0,.22)";
     c.lineWidth = 2;
     for (let x = -((cam * 1) % 120); x < W; x += 120) {
       c.beginPath();
@@ -511,6 +592,32 @@ export class Renderer {
       c.lineTo(x - 14, CURB_Y);
       c.stroke();
     }
+    // stains and cracks on the pavement, fixed to the world
+    for (let i = Math.floor(cam / 160) - 1; i < (cam + W) / 160 + 1; i++) {
+      const r = rng(i * 7919 + 13),
+        x = i * 160 + r() * 120 - cam;
+      if (r() < 0.6) {
+        c.fillStyle = "rgba(40,34,28,0.18)";
+        c.beginPath();
+        c.ellipse(x, SIDEWALK_TOP + 18 + r() * 30, 20 + r() * 40, 4 + r() * 6, 0, 0, Math.PI * 2);
+        c.fill();
+      }
+      if (r() < 0.4) {
+        c.strokeStyle = "rgba(20,16,14,0.5)";
+        c.lineWidth = 1.5;
+        c.beginPath();
+        let cx = x,
+          cy = SIDEWALK_TOP + 10;
+        c.moveTo(cx, cy);
+        for (let k = 0; k < 4; k++) {
+          cx += (r() - 0.3) * 20;
+          cy += 6 + r() * 8;
+          c.lineTo(cx, cy);
+        }
+        c.stroke();
+      }
+    }
+    hatch(c, 0, SIDEWALK_TOP, W, 8, 5, 0.3);
   }
 
   drawStreetFront(world, cam) {
@@ -634,7 +741,7 @@ export class Renderer {
     c.translate(x, base);
     c.fillStyle = "rgba(255,240,180,.08)";
     ellipse(c, 34, -290, 70, 50);
-    c.fill();
+    fillPlain(c);
     c.beginPath();
     c.moveTo(0, 0);
     c.lineTo(0, -280);
@@ -722,7 +829,7 @@ export class Renderer {
         ellipse(c, x, y, r, r * 0.8);
         c.fillStyle = i % 3 === 0 ? "#ffef7a" : i % 3 === 1 ? "#ff9a1f" : "#ff5a12";
         c.globalAlpha = 0.85 - t * 0.4;
-        c.fill();
+        fillPlain(c);
       }
       c.restore();
     }
@@ -738,7 +845,7 @@ export class Renderer {
         inked(c, "#cfd3da", 2.5);
         ellipse(c, -30, 0, 12, 5);
         c.fillStyle = "#ff9a1f";
-        c.fill();
+        fillPlain(c);
       } else {
         ellipse(c, 0, 0, 8, 8);
         inked(c, "#3a4a32", 2.5);
@@ -752,23 +859,34 @@ export class Renderer {
       c.globalAlpha = 1 - t;
       ellipse(c, 0, 0, e.r * (0.4 + t * 0.7), e.r * (0.35 + t * 0.55));
       c.fillStyle = t < 0.35 ? "#ffd23f" : "#ff7a1a";
-      c.fill();
+      fillPlain(c);
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
         ellipse(c, Math.cos(a) * e.r * 0.6 * t, Math.sin(a) * e.r * 0.4 * t - 30 * t, 26 + 20 * t, 22 + 16 * t);
         c.fillStyle = "rgba(60,60,64,.8)";
-        c.fill();
+        fillPlain(c);
       }
+      c.restore();
+    }
+    for (const sp of world.sprays) {
+      c.save();
+      c.translate(sp.x - cam, GROUND_Y - sp.h);
+      drawSpray(c, sp);
       c.restore();
     }
     for (const g of world.gibs) {
       c.save();
       c.translate(g.x - cam, GROUND_Y + g.y);
+      if (g.kind === "drop") {
+        drawDrop(c, g);
+        c.restore();
+        continue;
+      }
       drawGib(c, g.kind, g.size, g.rot, g.type, 3);
       if (g.kind !== "eye") {
         c.fillStyle = "#b0141c";
         ellipse(c, -g.vx * 0.02, -g.vy * 0.02, 3, 3);
-        c.fill();
+        fillPlain(c);
       }
       c.restore();
     }
@@ -861,7 +979,7 @@ export class Renderer {
       for (let x = -((cam % (tile * 2)) + tile * 2) + (row % 2) * tile; x < W + tile; x += tile * 2) {
         poly(c, [[x, y], [x + tile, y], [x + tile * 1.2, y + tile * 0.55], [x + tile * 0.2, y + tile * 0.55]]);
         c.fillStyle = "#7eaed6";
-        c.fill();
+        fillPlain(c);
       }
     c.fillStyle = "rgba(170,205,232,.55)";
     c.fillRect(0, 400, W, H - 400);
@@ -887,8 +1005,8 @@ export class Renderer {
     c.translate(s.x - cam, SHOP_FLOOR_Y);
     ellipse(c, 0, 4, 30, 7);
     c.fillStyle = "rgba(0,0,0,.2)";
-    c.fill();
-    drawKid(c, { facing: p.facing, walk: p.walk, moving: p.moving, gun: world.inv.gun, melee: world.inv.melee });
+    fillPlain(c);
+    drawKid(c, { facing: p.facing, walk: p.walk, moving: p.moving, gun: world.inv.gun, melee: world.inv.melee, t: this.t, blood: p.blood });
     c.restore();
     // what the buttons do here
     const it = s.selected;
@@ -933,6 +1051,62 @@ export class Renderer {
     if (w.ammoPrice) tag(x + 30, 292, 56, 22, `•$${w.ammoPrice}`, 17, INK, false);
   }
 
+  // ------------------------------------------------------------ the 2000s comic finish
+  drawPost(world) {
+    const c = this.c,
+      W = this.W,
+      H = this.H;
+    // a warm, dirty grade
+    c.save();
+    c.globalCompositeOperation = "multiply";
+    c.fillStyle = "rgba(236,214,180,0.55)";
+    c.fillRect(0, 0, W, H);
+    c.restore();
+    // vignette
+    const vig = this.cached(`vig:${Math.round(W)}`, () => {
+      const cv = offscreen(W, H),
+        x = cv.getContext("2d");
+      const g = x.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H * 0.5, W * 0.72);
+      g.addColorStop(0, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(10,6,4,0.55)");
+      x.fillStyle = g;
+      x.fillRect(0, 0, W, H);
+      return cv;
+    });
+    c.drawImage(vig, 0, 0);
+    // film grain, re-rolled every frame
+    const grain = this.cached("grain", () => {
+      const cv = offscreen(200, 200),
+        x = cv.getContext("2d"),
+        img = x.createImageData(200, 200);
+      for (let i = 0; i < img.data.length; i += 4) {
+        const v = Math.random();
+        const on = v < 0.12 || v > 0.9;
+        img.data[i] = img.data[i + 1] = img.data[i + 2] = v > 0.5 ? 255 : 0;
+        img.data[i + 3] = on ? 90 : 0;
+      }
+      x.putImageData(img, 0, 0);
+      return cv;
+    });
+    c.save();
+    c.globalAlpha = 0.18;
+    const ox = Math.floor(Math.random() * 200),
+      oy = Math.floor(Math.random() * 200);
+    for (let x = -ox; x < W; x += 200) for (let y = -oy; y < H; y += 200) c.drawImage(grain, x, y);
+    c.restore();
+    // blood at the edges of the screen when you are close to dying
+    const p = world.player,
+      f = p.hp / p.maxHp;
+    if (world.status !== "card" && (f < 0.35 || p.hurt > 0)) {
+      const pulse = f < 0.35 ? 0.35 + 0.25 * Math.sin(this.t * 6) + (0.35 - f) : 0.25;
+      const g = c.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.65);
+      g.addColorStop(0, "rgba(150,0,10,0)");
+      g.addColorStop(1, `rgba(150,0,10,${Math.min(0.75, pulse)})`);
+      c.fillStyle = g;
+      c.fillRect(0, 0, W, H);
+    }
+  }
+
   // ------------------------------------------------------------ HUD
   drawHud(world) {
     const c = this.c,
@@ -957,7 +1131,7 @@ export class Renderer {
     const f = clamp(p.hp / p.maxHp, 0, 1);
     poly(c, [[bx + 5, by + 5], [bx + 5 + (bw - 14) * f, by + 5], [bx + 3 + (bw - 14) * f, by + 25], [bx + 3, by + 25]]);
     c.fillStyle = "#ff6a1f";
-    c.fill();
+    fillPlain(c);
     c.fillStyle = "rgba(0,0,0,.18)";
     c.fillRect(bx + 4, by + 18, (bw - 14) * f, 7);
     // white skewed ammo box

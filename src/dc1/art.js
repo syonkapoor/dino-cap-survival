@@ -9,51 +9,121 @@ export const FONT = '"Bangers", "Impact", "Arial Black", sans-serif';
 
 // Smooth closed (or open) path through points using midpoint quadratics: the
 // cheap way to get a hand-drawn, slightly lumpy outline.
-export function blob(c, pts, closed = true) {
+// The last shape built, so inked() can shade it and add a rough second line.
+let LAST = null;
+const hash = (x, y) => {
+  const v = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return v - Math.floor(v);
+};
+function trace(c, pts, closed, jitter = 0) {
+  const P = jitter ? pts.map(([x, y]) => [x + (hash(x, y) - 0.5) * jitter, y + (hash(y, x) - 0.5) * jitter]) : pts;
+  const n = P.length;
   c.beginPath();
-  const n = pts.length;
   if (!closed) {
-    c.moveTo(pts[0][0], pts[0][1]);
+    c.moveTo(P[0][0], P[0][1]);
     for (let i = 1; i < n - 1; i++) {
-      const [x, y] = pts[i],
-        [nx, ny] = pts[i + 1];
+      const [x, y] = P[i],
+        [nx, ny] = P[i + 1];
       c.quadraticCurveTo(x, y, (x + nx) / 2, (y + ny) / 2);
     }
-    c.lineTo(pts[n - 1][0], pts[n - 1][1]);
+    c.lineTo(P[n - 1][0], P[n - 1][1]);
     return;
   }
   const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-  const start = mid(pts[n - 1], pts[0]);
+  const start = mid(P[n - 1], P[0]);
   c.moveTo(start[0], start[1]);
   for (let i = 0; i < n; i++) {
-    const p = pts[i],
-      m = mid(p, pts[(i + 1) % n]);
-    c.quadraticCurveTo(p[0], p[1], m[0], m[1]);
+    const q = P[i],
+      m = mid(q, P[(i + 1) % n]);
+    c.quadraticCurveTo(q[0], q[1], m[0], m[1]);
   }
   c.closePath();
 }
-export function poly(c, pts) {
+function tracePoly(c, P) {
   c.beginPath();
-  c.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+  c.moveTo(P[0][0], P[0][1]);
+  for (let i = 1; i < P.length; i++) c.lineTo(P[i][0], P[i][1]);
   c.closePath();
+}
+export function blob(c, pts, closed = true) {
+  LAST = { kind: "blob", pts, closed };
+  return trace(c, pts, closed);
+}
+export function poly(c, pts) {
+  LAST = { kind: "poly", pts, closed: true };
+  tracePoly(c, pts);
 }
 // While a tint is set every inked fill uses it: drawing a sprite a second
 // time, tinted and translucent, is the hit flash.
 let TINT = null;
 export const setTint = (color) => (TINT = color);
+let SHADE = true;
+export const setShade = (on) => (SHADE = on);
+// The 2000s comic look: flat fill, a hard cel shadow on the lower-right of
+// every shape, a heavy ink line and a thinner second pass that misses the
+// first by a hair, the way a hand-inked panel does.
 export function inked(c, fill, width = 3.5) {
+  const shape = LAST;
+  LAST = null;
   if (fill) {
     c.fillStyle = TINT || fill;
     c.fill();
+    if (SHADE && shape && !TINT) {
+      let x0, y0, x1, y1;
+      if (shape.kind === "ellipse") {
+        const [x, y, rx, ry] = shape.args;
+        x0 = x - rx;
+        x1 = x + rx;
+        y0 = y - ry;
+        y1 = y + ry;
+      } else {
+        x0 = y0 = Infinity;
+        x1 = y1 = -Infinity;
+        for (const [x, y] of shape.pts) {
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
+        }
+      }
+      if (x1 - x0 > 6 && y1 - y0 > 6) {
+        const g = c.createLinearGradient(x0, y0, x1, y1);
+        g.addColorStop(0, "rgba(255,248,220,0.10)");
+        g.addColorStop(0.3, "rgba(255,248,220,0)");
+        g.addColorStop(0.62, "rgba(20,12,24,0)");
+        g.addColorStop(0.63, "rgba(20,12,24,0.26)");
+        g.addColorStop(1, "rgba(20,12,24,0.34)");
+        c.fillStyle = g;
+        c.fill();
+      }
+    }
   }
-  c.lineWidth = width;
+  c.lineWidth = width * 1.12;
   c.strokeStyle = INK;
   c.lineJoin = "round";
   c.lineCap = "round";
   c.stroke();
+  if (shape && width >= 2.4) {
+    c.save();
+    c.globalAlpha *= 0.55;
+    c.lineWidth = Math.max(1, width * 0.38);
+    if (shape.kind === "ellipse") {
+      const [x, y, rx, ry, rot] = shape.args;
+      c.beginPath();
+      c.ellipse(x + 0.9, y - 0.7, rx * 1.02, ry * 0.99, rot + 0.04, 0.2, Math.PI * 1.85);
+    } else if (shape.kind === "poly") tracePoly(c, shape.pts.map(([x, y]) => [x + (hash(x, y) - 0.5) * 2.4, y + (hash(y, x) - 0.5) * 2.4]));
+    else trace(c, shape.pts, shape.closed, 2.6);
+    c.stroke();
+    c.restore();
+  }
+}
+// fill without ink: also forgets the shape so the next inked() can't misuse it
+export function fillPlain(c) {
+  c.fill();
+  LAST = null;
 }
 export function ellipse(c, x, y, rx, ry, rot = 0) {
+  LAST = { kind: "ellipse", args: [x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot] };
   c.beginPath();
   c.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot, 0, Math.PI * 2);
 }
@@ -286,94 +356,191 @@ export function drawAmmoIcon(c, family, x, y, s = 1) {
 }
 
 // ---------------------------------------------------------------- the kid
-// White #8 jersey with red trim, red shoes, big round head. ~150px tall.
-const SKIN = "#5e3a24",
-  SKIN_D = "#4a2c1b";
+// Chibi proportions from the footage: a big round head, wide tired eyes,
+// white #8 jersey with red trim, white shorts, red shoes. ~140px tall.
+const SKIN = "#4f2f1d",
+  SKIN_D = "#3a2114",
+  SKIN_L = "#6a4129";
+// where blood lands on the kid, in order, as the bites add up
+const KID_SPLATS = [
+  [6, -78, 7], [-8, -64, 6], [14, -58, 5], [18, -112, 6], [-4, -92, 5], [2, -50, 6], [26, -100, 4],
+  [-12, -80, 4], [10, -40, 5], [30, -120, 4], [-6, -122, 5], [-14, -56, 4], [22, -70, 5], [8, -136, 4],
+];
+function splat(c, x, y, r, seed) {
+  const pts = [];
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2,
+      rr = r * (0.6 + hash(seed + i, x) * 0.7);
+    pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr]);
+  }
+  trace(c, pts, true);
+  c.fillStyle = "#a3101a";
+  c.fill();
+}
 export function drawKid(c, o) {
-  const { facing = 1, walk = 0, moving = false, swing = 0, muzzle = 0, gun = "usp", melee = "club", shooting = false, dead = false } = o;
+  const {
+    facing = 1,
+    walk = 0,
+    moving = false,
+    swing = 0,
+    muzzle = 0,
+    gun = "usp",
+    melee = "club",
+    shooting = false,
+    dead = false,
+    t = 0,
+    recoil = 0,
+    blood = 0,
+    hurt = 0,
+  } = o;
   c.save();
   c.scale(facing, 1);
+  // gait: a bouncy stride with a forward lean; standing still he breathes
   const stride = moving ? Math.sin(walk) : 0;
-  const bob = moving ? Math.abs(Math.cos(walk)) * 3 : 0;
-  c.translate(0, -bob);
-  // legs
+  const bob = moving ? Math.abs(Math.cos(walk)) * 5 : 0;
+  const breath = moving ? 0 : Math.sin(t * 2.6);
+  const lean = moving ? 0.07 : 0;
+  const kick = recoil * 4;
+  c.translate(-kick, -bob);
+  // legs (drawn from the hip, so they swing)
   const leg = (dx, ang, back) => {
     c.save();
-    c.translate(dx, -38);
+    c.translate(dx, -34);
     c.rotate(ang);
-    poly(c, [[-7, 0], [7, 0], [6, 26], [-6, 26]]);
-    inked(c, back ? "#d9d6cf" : "#f4f2ec", 3);
-    poly(c, [[-6, 22], [6, 22], [6, 30], [-6, 30]]);
-    inked(c, SKIN, 2.5);
-    blob(c, [[-8, 30], [14, 30], [16, 38], [-9, 38]]);
-    inked(c, back ? "#b12a26" : "#d8352f", 3);
+    poly(c, [[-7, -2], [7, -2], [6, 18], [-6, 18]]);
+    inked(c, back ? "#d6d1c6" : "#efebe2", 3);
+    poly(c, [[-5, 16], [5, 16], [5, 24], [-5, 24]]);
+    inked(c, back ? SKIN_D : SKIN, 2.5);
+    blob(c, [[-9, 23], [13, 22], [17, 30], [15, 34], [-10, 34]]);
+    inked(c, back ? "#9c1f1c" : "#cf2c27", 3);
+    poly(c, [[-8, 31], [16, 31], [15, 34], [-9, 34]]);
+    inked(c, "#f1ede4", 1.5);
     c.restore();
   };
-  leg(-6, stride * 0.5, true);
+  leg(-5, stride * 0.7, true);
+  c.save();
+  c.rotate(lean);
   // shorts
-  poly(c, [[-16, -50], [16, -50], [17, -32], [-17, -32]]);
-  inked(c, "#f4f2ec", 3);
-  c.fillStyle = "#d8352f";
-  c.fillRect(-16, -36, 33, 3);
-  leg(6, -stride * 0.5, false);
-  // jersey
-  blob(c, [[-18, -92], [16, -92], [20, -72], [18, -48], [-18, -48], [-21, -72]]);
-  inked(c, "#f7f5ef", 3.5);
+  poly(c, [[-15, -46], [15, -46], [16, -30], [-16, -30]]);
+  inked(c, "#efebe2", 3);
+  c.fillStyle = "#cf2c27";
+  c.fillRect(-15, -36, 31, 3);
+  c.restore();
+  leg(6, -stride * 0.7, false);
+
+  // torso breathes: it grows a touch from the waist up
+  c.save();
+  c.rotate(lean);
+  c.translate(0, -46);
+  c.scale(1 + breath * 0.025, 1 + breath * 0.06);
+  c.translate(0, 46);
+  // back arm swings opposite the front leg while walking
+  c.save();
+  c.translate(-8, -80);
+  c.rotate(moving ? -stride * 0.6 : 0.15 + breath * 0.06);
+  blob(c, [[-5, 0], [5, 0], [6, 26], [-4, 28]]);
+  inked(c, SKIN_D, 3);
+  c.restore();
+  blob(c, [[-18, -86], [15, -86], [20, -70], [18, -44], [-18, -44], [-21, -68]]);
+  inked(c, "#f4f1ea", 3.5);
+  // sleeves and collar trim
+  c.strokeStyle = "#cf2c27";
+  c.lineWidth = 3.5;
   c.beginPath();
-  c.moveTo(-8, -92);
-  c.quadraticCurveTo(0, -84, 8, -92);
-  c.lineWidth = 4;
-  c.strokeStyle = "#d8352f";
+  c.moveTo(-8, -86);
+  c.quadraticCurveTo(0, -78, 8, -86);
   c.stroke();
-  c.font = `20px ${FONT}`;
+  // number 8, painted on rather than typed
+  c.font = `22px ${FONT}`;
   c.textAlign = "center";
   c.textBaseline = "middle";
-  c.lineWidth = 3;
-  c.strokeStyle = INK;
-  c.strokeText("8", 2, -70);
-  c.fillStyle = "#d8352f";
-  c.fillText("8", 2, -70);
-  // back arm
-  const swingT = swing > 0 ? 1 - swing / 0.22 : 0;
-  const isSwing = swing > 0;
-  // head
-  c.save();
-  c.translate(0, -92);
-  ellipse(c, 0, -30, 31, 30);
-  inked(c, SKIN, 3.5);
-  // short hair: flat top fade
-  blob(c, [[-30, -36], [-26, -56], [0, -62], [24, -56], [30, -40], [24, -46], [0, -50], [-22, -46]]);
-  inked(c, "#16110f", 2.5);
-  // ear
-  ellipse(c, -14, -26, 6, 8);
-  inked(c, SKIN_D, 2.5);
-  // eyes: big whites, small pupils looking ahead
-  ellipse(c, 14, -32, 9, 10);
-  inked(c, "#ffffff", 2.5);
-  ellipse(c, 26, -31, 6, 9);
-  inked(c, "#ffffff", 2.5);
-  c.fillStyle = INK;
-  ellipse(c, 17, -31, 2.6, 3);
-  c.fill();
-  ellipse(c, 28, -30, 2.2, 3);
-  c.fill();
-  c.beginPath();
-  c.moveTo(8, -45);
-  c.lineTo(20, -43);
-  c.lineWidth = 3;
-  c.strokeStyle = INK;
-  c.stroke();
-  // mouth
-  c.beginPath();
-  if (dead) c.arc(22, -12, 5, Math.PI, 0);
-  else c.arc(22, -14, 4, 0, Math.PI);
   c.lineWidth = 2.5;
-  c.stroke();
+  c.strokeStyle = "#7a1612";
+  c.strokeText("8", 4, -64);
+  c.fillStyle = "#d8352f";
+  c.fillText("8", 4, -64);
+  // blood soaked into the jersey
+  for (let i = 0; i < Math.min(blood, KID_SPLATS.length); i++) {
+    const [x, y, r] = KID_SPLATS[i];
+    if (y > -90) splat(c, x, y, r, i * 7.1);
+  }
   c.restore();
+
+  // head: bobs with the walk, rises with each breath, snaps back when hit
+  c.save();
+  c.rotate(lean);
+  c.translate(0, -86 - breath * 3.4 + (moving ? Math.cos(walk * 2) * 1.2 : 0));
+  c.rotate(hurt > 0 ? -0.18 : dead ? 0.3 : 0);
+  ellipse(c, 2, -32, 34, 32);
+  inked(c, SKIN, 3.5);
+  // short hair, faded at the sides
+  blob(c, [[-32, -36], [-28, -58], [-4, -66], [24, -60], [34, -42], [26, -50], [2, -54], [-22, -50]]);
+  inked(c, "#130e0c", 2.5);
+  ellipse(c, -14, -28, 6, 8);
+  inked(c, SKIN_D, 2.5);
+  // eyes: big whites, tiny pupils, heavy upper lids. They blink.
+  const blink = !dead && t % 3.9 < 0.11;
+  if (blink || dead) {
+    c.strokeStyle = INK;
+    c.lineWidth = 3;
+    c.beginPath();
+    if (dead) {
+      for (const ex of [16, 30]) {
+        c.moveTo(ex - 5, -38);
+        c.lineTo(ex + 5, -28);
+        c.moveTo(ex + 5, -38);
+        c.lineTo(ex - 5, -28);
+      }
+    } else {
+      c.moveTo(8, -32);
+      c.lineTo(24, -32);
+      c.moveTo(26, -31);
+      c.lineTo(35, -31);
+    }
+    c.stroke();
+  } else {
+    ellipse(c, 16, -32, 9.5, 11);
+    inked(c, "#ffffff", 2.5);
+    ellipse(c, 30, -31, 6.5, 10);
+    inked(c, "#ffffff", 2.5);
+    c.fillStyle = INK;
+    const look = hurt > 0 ? 2 : 0;
+    ellipse(c, 19 + look, -35, 2.4, 2.8);
+    fillPlain(c);
+    ellipse(c, 32 + look, -34, 2, 2.6);
+    fillPlain(c);
+    // heavy lids
+    c.beginPath();
+    c.moveTo(6, -38);
+    c.quadraticCurveTo(16, -45, 26, -39);
+    c.moveTo(25, -38);
+    c.quadraticCurveTo(31, -43, 37, -37);
+    c.lineWidth = 3.5;
+    c.strokeStyle = INK;
+    c.stroke();
+  }
+  // nose + mouth
+  c.beginPath();
+  c.moveTo(36, -24);
+  c.quadraticCurveTo(40, -20, 35, -18);
+  c.lineWidth = 2.5;
+  c.strokeStyle = SKIN_D;
+  c.stroke();
+  ellipse(c, 27, -10, hurt > 0 ? 5 : 3.5, hurt > 0 ? 4 : 2.2);
+  inked(c, "#6d2a22", 2);
+  for (let i = 0; i < Math.min(blood, KID_SPLATS.length); i++) {
+    const [x, y, r] = KID_SPLATS[i];
+    if (y <= -90) splat(c, x, y + 86, r, i * 3.3);
+  }
+  c.restore();
+
   // weapon arm
   c.save();
-  c.translate(4, -76);
+  c.rotate(lean);
+  c.translate(4, -72 - breath * 2.6);
+  const isSwing = swing > 0;
   if (isSwing) {
+    const swingT = 1 - swing / 0.22;
     const a = -2.2 + swingT * 3.0;
     c.rotate(a + Math.PI / 2);
     drawMelee(c, melee, 0.9);
@@ -382,7 +549,8 @@ export function drawKid(c, o) {
     blob(c, [[0, -5], [26, -5], [26, 5], [0, 5]]);
     inked(c, SKIN, 3);
   } else {
-    // hold the gun at the waist, pointing forward
+    // gun held low at the hip, kicking up with each shot
+    c.rotate(-recoil * 0.28 + (moving ? Math.sin(walk) * 0.05 : 0));
     blob(c, [[-2, -6], [18, 4], [24, 12], [14, 16], [-4, 6]]);
     inked(c, SKIN, 3);
     c.save();
@@ -392,17 +560,17 @@ export function drawKid(c, o) {
       const L = { pistol: 30, smg: 40, rifle: 62, shotgun: 58, launcher: 64, saw: 56, flame: 60, laser: 54 }[WEAPON[gun].family] - 18;
       c.translate(L, -7);
       c.beginPath();
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * Math.PI * 2,
-          r = i % 2 ? 7 : 18;
-        c.lineTo(Math.cos(a) * r * 1.3 + 8, Math.sin(a) * r * 0.7);
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2,
+          r = i % 2 ? 6 : 16 + (i % 4) * 3;
+        c.lineTo(Math.cos(a) * r * 1.4 + 9, Math.sin(a) * r * 0.75);
       }
       c.closePath();
-      c.fillStyle = "#ffd23a";
-      c.fill();
+      c.fillStyle = "#ffcf3a";
+      fillPlain(c);
       c.fillStyle = "#fff6c4";
-      ellipse(c, 6, 0, 7, 4);
-      c.fill();
+      ellipse(c, 7, 0, 8, 4);
+      fillPlain(c);
     }
     c.restore();
   }
@@ -431,7 +599,19 @@ export function drawDino(c, d, t = 0) {
   if (st === "windup" || st === "lunge") jaw = 0.75;
   if (st === "latched") jaw = 0.25 + Math.abs(Math.sin(t * 14 + d.id)) * 0.55;
   if (st === "stagger") jaw = 0.5;
+  // idle breathing when not running, and a lazy tail sway
+  const idle = st !== "walk" && st !== "lunge";
+  const breath = Math.sin(t * 3.1 + d.id * 1.7);
   c.translate(0, crouch);
+  if (idle) {
+    c.translate(0, -50);
+    c.scale(1, 1 + breath * 0.03);
+    c.translate(0, 50);
+  }
+  c.save();
+  c.translate(-30, -62);
+  c.rotate(Math.sin(t * 2.2 + d.id) * 0.06);
+  c.translate(30, 62);
   // tail
   blob(c, [[-30, -70], [-70, -78], [-112, -92], [-118, -88], [-72, -62], [-28, -52]]);
   inked(c, look.body, 3.5);
@@ -441,6 +621,7 @@ export function drawDino(c, d, t = 0) {
     poly(c, [[x - 6, y], [x, y - 11], [x + 6, y]]);
     inked(c, look.spike, 2);
   }
+  c.restore();
   // back leg
   const legDraw = (dx, ang, shade) => {
     c.save();
@@ -463,7 +644,7 @@ export function drawDino(c, d, t = 0) {
   // belly
   blob(c, [[-12, -50], [22, -50], [40, -62], [30, -60], [0, -56]]);
   c.fillStyle = look.belly;
-  c.fill();
+  fillPlain(c);
   // stripes
   c.strokeStyle = look.stripe;
   c.lineWidth = 4;
@@ -501,7 +682,7 @@ export function drawDino(c, d, t = 0) {
   inked(c, look.body, 3);
   poly(c, [[6, 0], [50, 3], [48, 9], [6, 8]]);
   c.fillStyle = "#7a1016";
-  c.fill();
+  fillPlain(c);
   for (let i = 0; i < 6; i++) {
     poly(c, [[10 + i * 7, 2], [13 + i * 7, -6], [16 + i * 7, 2]]);
     inked(c, "#fffdf3", 1.5);
@@ -514,7 +695,7 @@ export function drawDino(c, d, t = 0) {
   // mouth interior + upper teeth
   poly(c, [[8, 4], [60, 2], [56, 8], [8, 9]]);
   c.fillStyle = "#7a1016";
-  c.fill();
+  fillPlain(c);
   for (let i = 0; i < 7; i++) {
     poly(c, [[12 + i * 7, 2], [15 + i * 7, 11], [18 + i * 7, 2]]);
     inked(c, "#fffdf3", 1.5);
@@ -536,7 +717,7 @@ export function drawDino(c, d, t = 0) {
     inked(c, "#ffffff", 2.5);
     c.fillStyle = INK;
     ellipse(c, 22, -15, 2.4, 2.6);
-    c.fill();
+    fillPlain(c);
     c.beginPath();
     c.moveTo(6, -28);
     c.lineTo(30, -20);
@@ -549,7 +730,7 @@ export function drawDino(c, d, t = 0) {
     inked(c, "#2a2224", 2);
     c.fillStyle = "#ffffff";
     ellipse(c, 23, -15, 2.5, 2.5);
-    c.fill();
+    fillPlain(c);
     ellipse(c, 50, -10, 3, 2.5);
     inked(c, "#2a2224", 1.5);
     blob(c, [[-6, -24], [-14, -10], [-8, 2], [-2, -10]]);
@@ -602,7 +783,7 @@ export function drawCorpse(c, type, dir, burnt) {
   inked(c, "#9b1119", 2.5);
   ellipse(c, 46, -20, 5, 7);
   c.fillStyle = "#e9dcc6";
-  c.fill();
+  fillPlain(c);
   blob(c, [[-10, -8], [8, -10], [16, 2], [-12, 2]]);
   inked(c, col, 2.5);
   c.restore();
@@ -618,7 +799,7 @@ export function drawGib(c, kind, size, rot, type = "raptor", seed = 0) {
     inked(c, "#ffffff", 2.5);
     c.fillStyle = INK;
     ellipse(c, 3, 0, 2.6, 2.6);
-    c.fill();
+    fillPlain(c);
     c.beginPath();
     c.moveTo(-8, 0);
     c.quadraticCurveTo(-14, 4, -18, 1);
@@ -645,7 +826,7 @@ export function drawGib(c, kind, size, rot, type = "raptor", seed = 0) {
     inked(c, "#c4323a", 2.5);
     ellipse(c, 0, -1, 4, 2.5);
     c.fillStyle = "#f0a3a3";
-    c.fill();
+    fillPlain(c);
     poly(c, [[3, 2], [12, 0], [12, 3], [3, 4]]);
     inked(c, "#f1ead6", 1.5);
   }
@@ -656,12 +837,15 @@ export function drawPool(c, size, seed) {
   c.save();
   c.scale(size, size);
   const r = (k) => ((Math.sin(seed * 9.1 + k * 2.3) + 1) / 2) * 10;
-  c.fillStyle = "#8f0f17";
-  blob(c, [[-46 - r(1), 0], [-20, -6 - r(2) * 0.3], [10, -7], [40 + r(3), -2], [34, 5], [0, 7 + r(4) * 0.3], [-36, 5]]);
-  c.fill();
-  c.fillStyle = "#c4252e";
-  ellipse(c, -6, -1, 16, 2.5);
-  c.fill();
+  c.fillStyle = "#7a0911";
+  blob(c, [[-62 - r(1), 1], [-30, -8 - r(2) * 0.3], [12, -9], [56 + r(3), -3], [44, 7], [0, 9 + r(4) * 0.3], [-48, 7]]);
+  fillPlain(c);
+  c.fillStyle = "#a50f19";
+  blob(c, [[-40, 0], [-10, -5], [30, -4], [26, 3], [-20, 4]]);
+  fillPlain(c);
+  c.fillStyle = "rgba(255,190,190,.55)";
+  ellipse(c, -8, -2, 14, 1.6);
+  fillPlain(c);
   c.restore();
 }
 
@@ -741,7 +925,7 @@ export function drawCrate(c, glow = 0) {
     c.globalAlpha = 0.35 + glow * 0.3;
     ellipse(c, 0, 2, 46, 10);
     c.fillStyle = "#fff6b0";
-    c.fill();
+    fillPlain(c);
     c.restore();
   }
   poly(c, [[-26, -36], [26, -36], [26, 0], [-26, 0]]);
@@ -763,4 +947,112 @@ export function drawMedBottle(c) {
   c.fillStyle = "#e0322b";
   c.fillRect(-3, -26, 6, 18);
   c.fillRect(-9, -20, 18, 6);
+}
+
+// ---------------------------------------------------------------- blood
+const BLOOD = "#a50f19",
+  BLOOD_D = "#6d070d",
+  BLOOD_L = "#d42a33";
+// a fan of streaks and drops thrown in one direction (the spray in the footage)
+export function drawSpray(c, sp) {
+  const t = 1 - sp.life / sp.max;
+  c.save();
+  c.globalAlpha = Math.min(1, sp.life / sp.max + 0.25);
+  for (let i = 0; i < sp.n; i++) {
+    const r1 = hash(sp.seed + i, 1.3),
+      r2 = hash(sp.seed, i * 2.1);
+    const a = (r1 - 0.62) * 1.4;
+    const len = (30 + r2 * 70) * sp.big * (0.4 + t * 0.9);
+    const dx = Math.cos(a) * len * sp.dir,
+      dy = Math.sin(a) * len;
+    c.strokeStyle = i % 3 ? BLOOD : BLOOD_L;
+    c.lineWidth = (2 + r2 * 4) * (1 - t * 0.5);
+    c.lineCap = "round";
+    c.beginPath();
+    c.moveTo(dx * 0.25, dy * 0.25);
+    c.lineTo(dx, dy);
+    c.stroke();
+    c.beginPath();
+    c.arc(dx, dy, 2 + r1 * 3 * sp.big, 0, Math.PI * 2);
+    c.fillStyle = BLOOD;
+    fillPlain(c);
+  }
+  // the burst at the wound
+  if (t < 0.5) {
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2,
+        r = (i % 2 ? 6 : 14) * sp.big * (1 - t);
+      pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+    }
+    tracePoly(c, pts);
+    c.fillStyle = BLOOD_L;
+    fillPlain(c);
+  }
+  c.restore();
+}
+export function drawDrop(c, g) {
+  const ang = Math.atan2(g.vy, g.vx);
+  c.save();
+  c.rotate(ang);
+  c.beginPath();
+  c.ellipse(0, 0, 4 * g.size + Math.min(8, Math.hypot(g.vx, g.vy) / 80), 2.6 * g.size, 0, 0, Math.PI * 2);
+  c.fillStyle = BLOOD;
+  fillPlain(c);
+  c.restore();
+}
+export function drawSplat(c, size, seed) {
+  const pts = [];
+  for (let i = 0; i < 11; i++) {
+    const a = (i / 11) * Math.PI * 2,
+      r = (i % 2 ? 5 : 9) * size * (0.6 + hash(seed, i) * 0.8);
+    pts.push([Math.cos(a) * r * 1.6, Math.sin(a) * r * 0.45]);
+  }
+  trace(c, pts, true);
+  c.fillStyle = BLOOD_D;
+  fillPlain(c);
+}
+export function drawSmear(c, size, dir, seed) {
+  c.save();
+  c.scale(dir || 1, 1);
+  const L = 70 * size;
+  trace(c, [[-10, -3], [L * 0.5, -5], [L, -2], [L * 0.6, 3], [0, 4]], true);
+  c.fillStyle = BLOOD_D;
+  fillPlain(c);
+  c.strokeStyle = "rgba(60,0,4,.6)";
+  c.lineWidth = 1.5;
+  for (let i = 0; i < 3; i++) {
+    c.beginPath();
+    c.moveTo(0, -2 + i * 2);
+    c.lineTo(L * (0.5 + hash(seed, i) * 0.4), -2 + i * 2);
+    c.stroke();
+  }
+  c.restore();
+}
+// a splat on a wall with drips running down
+export function drawWallSplat(c, size, seed) {
+  const pts = [];
+  for (let i = 0; i < 14; i++) {
+    const a = (i / 14) * Math.PI * 2,
+      r = (i % 2 ? 9 : 22) * size * (0.6 + hash(seed, i) * 0.8);
+    pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  trace(c, pts, true);
+  c.fillStyle = BLOOD;
+  fillPlain(c);
+  c.strokeStyle = BLOOD;
+  c.lineCap = "round";
+  for (let i = 0; i < 4; i++) {
+    const x = (hash(seed, i + 9) - 0.5) * 30 * size,
+      L = 16 + hash(i, seed) * 50 * size;
+    c.lineWidth = 3 + hash(seed + i, 2) * 3;
+    c.beginPath();
+    c.moveTo(x, 4);
+    c.lineTo(x, L);
+    c.stroke();
+    c.beginPath();
+    c.arc(x, L, c.lineWidth * 0.7, 0, Math.PI * 2);
+    c.fillStyle = BLOOD;
+    fillPlain(c);
+  }
 }

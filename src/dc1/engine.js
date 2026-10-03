@@ -18,7 +18,7 @@ import {
 export const PLAYER_SPEED = 215;
 export const CARD_TIME = 1.7;
 export const CLEAR_TIME = 2.4;
-export const DECAL_CAP = 150;
+export const DECAL_CAP = 260;
 export const SHOP_SLOT = 150;
 export const SHOP_RACK_X = 340;
 export const SHOP_EXIT_X = 70;
@@ -90,6 +90,8 @@ export class World {
     this.gibs = [];
     this.corpses = [];
     this.tracers = [];
+    this.sprays = [];
+    this.geysers = [];
     this.flames = [];
     this.explosions = [];
     this.popups = [];
@@ -113,6 +115,8 @@ export class World {
       hurt: 0,
       grace: 0,
       leaveTimer: 0,
+      blood: 0,
+      recoil: 0,
     };
     if (mode === "blitz") {
       // Jungle Blitz: its own loadout, weapons and ammo fall from the sky.
@@ -180,12 +184,14 @@ export class World {
     this.gibs = [];
     this.corpses = [];
     this.tracers = [];
+    this.sprays = [];
+    this.geysers = [];
     this.flames = [];
     this.explosions = [];
     this.popups = [];
     this.scene = "street";
     this.shop = null;
-    Object.assign(this.player, { x: 200, facing: 1, hp: this.player.maxHp, grace: 0, hurt: 0 });
+    Object.assign(this.player, { x: 200, facing: 1, hp: this.player.maxHp, grace: 0, hurt: 0, blood: 0 });
     this.t = 0;
     this.levelKills = 0;
     this.duration = levelDuration(level);
@@ -229,10 +235,21 @@ export class World {
   }
 
   fadeEffects(dt) {
-    for (const list of [this.tracers, this.flames, this.explosions, this.popups]) {
+    for (const list of [this.tracers, this.flames, this.explosions, this.popups, this.sprays]) {
       for (const e of list) e.life -= dt;
     }
     this.tracers = this.tracers.filter((e) => e.life > 0);
+    this.sprays = this.sprays.filter((e) => e.life > 0);
+    // a popped neck keeps pumping for a moment
+    for (const g of this.geysers) {
+      g.life -= dt;
+      g.acc += dt;
+      while (g.acc > 0.035) {
+        g.acc -= 0.035;
+        this.gibs.push({ x: g.x, y: -g.h, vx: g.dir * (20 + this.rand() * 90) + (this.rand() - 0.5) * 60, vy: -420 - this.rand() * 260, rot: 0, vr: 0, kind: "drop", size: 0.6 + this.rand() * 0.8 });
+      }
+    }
+    this.geysers = this.geysers.filter((g) => g.life > 0);
     this.flames = this.flames.filter((e) => e.life > 0);
     this.explosions = this.explosions.filter((e) => e.life > 0);
     this.popups = this.popups.filter((e) => e.life > 0);
@@ -245,11 +262,20 @@ export class World {
       g.rot += g.vr * dt;
       if (g.y >= 0) {
         g.y = 0;
-        this.addDecal({ x: g.x, kind: g.kind, type: g.type, size: g.size, rot: g.rot });
+        if (g.kind === "drop") this.addDecal({ x: g.x, kind: "splat", size: g.size, rot: 0 });
+        else this.addDecal({ x: g.x, kind: g.kind, type: g.type, size: g.size, rot: g.rot });
         g.dead = true;
       }
     }
     this.gibs = this.gibs.filter((g) => !g.dead);
+  }
+
+  // a burst of blood: a spray fan drawn for a moment plus droplets that land as splats
+  bleed(x, h, dir, amount = 1) {
+    this.sprays.push({ x, h, dir, life: 0.22, max: 0.22, n: Math.round(5 + amount * 6), seed: this.rand() * 1000, big: amount });
+    const drops = Math.round(3 + amount * 5);
+    for (let i = 0; i < drops; i++)
+      this.gibs.push({ x, y: -h, vx: dir * (60 + this.rand() * 260 * amount) + (this.rand() - 0.5) * 80, vy: -120 - this.rand() * 320, rot: 0, vr: 0, kind: "drop", size: 0.5 + this.rand() * 0.9 });
   }
 
   addDecal(d) {
@@ -277,8 +303,11 @@ export class World {
     if (move) {
       p.facing = move;
       p.x = clamp(p.x + move * PLAYER_SPEED * slow * dt, 40, this.street.length - 40);
+      const before = Math.floor(p.walk / Math.PI);
       p.walk += dt * 10 * slow;
+      if (Math.floor(p.walk / Math.PI) !== before) this.emit("step");
     }
+    p.recoil = Math.max(0, p.recoil - dt * 6);
 
     // the green button enters Ammo-Country at its door, otherwise swaps guns
     const door = this.nearShopDoor;
@@ -335,8 +364,8 @@ export class World {
       const cap = Math.min(4 + this.level, 16);
       if (this.spawnTimer <= 0 && this.dinos.length < cap) {
         const pack = this.rand() < Math.min(0.55, 0.18 + 0.03 * this.level) ? 2 + Math.floor(this.rand() * 2) : 1;
-        const side = this.rand() < 0.5 ? -1 : 1;
-        for (let i = 0; i < pack; i++) this.spawn(this.pickType(this.level), side, i * 70);
+        // the dinos always come in from the right
+        for (let i = 0; i < pack; i++) this.spawn(this.pickType(this.level), 1, i * 70);
         this.spawnTimer = Math.max(0.55, 2.2 - 0.12 * this.level) * (pack > 1 ? 1.6 : 1);
       }
     } else {
@@ -358,10 +387,9 @@ export class World {
     const cap = Math.min(22, 8 + Math.floor(this.t / 15));
     if (this.spawnTimer <= 0 && this.dinos.length < cap) {
       const pack = this.rand() < Math.min(0.6, 0.2 + this.t / 300) ? 2 + Math.floor(this.rand() * 2) : 1;
-      const side = this.rand() < 0.5 ? -1 : 1;
       for (let i = 0; i < pack; i++) {
         const type = this.t > 90 && this.rand() < 0.15 ? "brute" : this.t > 30 && this.rand() < 0.3 ? "horned" : "raptor";
-        this.spawn(type, side, i * 70);
+        this.spawn(type, 1, i * 70);
       }
       this.spawnTimer = Math.max(0.35, 1.6 - this.t * 0.008) * (pack > 1 ? 1.5 : 1);
     }
@@ -427,8 +455,10 @@ export class World {
   spawn(type, side, offset = 0) {
     const p = this.player,
       half = this.viewW / 2 + 90;
+    // off-screen on the given side; at the very end of the street they
+    // come out of the last building instead of appearing behind the kid
     let x = p.x + side * (half + offset);
-    if (x < 30 || x > this.street.length - 30) x = p.x - side * (half + offset);
+    if (x > this.street.length - 30) x = this.street.length - 30 - offset * 0.3;
     const s = dinoStats(type, this.level);
     const d = {
       id: this.nextId++,
@@ -497,7 +527,7 @@ export class World {
           if (d.timer <= 0) {
             d.state = "lunge";
             d.lungeLeft = d.s.lungeDist;
-            this.emit("lunge", { type: d.type });
+            this.emit("lunge", { dino: d.type });
           }
           break;
         case "lunge": {
@@ -536,7 +566,9 @@ export class World {
     if (p.grace > 0) return;
     p.hp = Math.max(0, p.hp - d.s.bite);
     p.hurt = 0.15;
-    this.emit("bite", { type: d.type });
+    p.blood = Math.min(14, p.blood + 1);
+    this.bleed(p.x + d.side * 12, 70 + this.rand() * 40, -d.side, 0.7);
+    this.emit("bite", { dino: d.type });
   }
 
   unlatch(d, push = 0) {
@@ -569,6 +601,7 @@ export class World {
       dmg = damageFor(g.id, lv);
     p.fireCool = g.rate;
     p.muzzle = 0.06;
+    p.recoil = g.family === "shotgun" || g.family === "launcher" ? 1 : g.family === "pistol" ? 0.6 : 0.35;
     if (g.family !== "flame") this.inv.owned[g.id].ammo -= 1;
     else this.inv.owned[g.id].ammo = Math.max(0, this.inv.owned[g.id].ammo - 1);
     const mx = p.x + p.facing * 48;
@@ -679,6 +712,8 @@ export class World {
     if (d.hp <= 0) return;
     d.hp -= amount;
     d.flash = 0.1;
+    const dir = Math.sign(push) || this.player.facing;
+    this.bleed(d.x - dir * d.s.width * 0.15, (d.type === "brute" ? 120 : 82) + (this.rand() - 0.5) * 30, dir, Math.min(1.6, 0.5 + amount / 40));
     d.burn = burn ? 0.4 : d.burn;
     if (d.hp <= 0) return this.kill(d, push);
     this.unlatch(d, push);
@@ -692,7 +727,7 @@ export class World {
     this.profile.best.totalKills = (this.profile.best.totalKills || 0) + 1;
     const reward = this.mode === "blitz" ? Math.round(d.s.blitzReward * (1 + this.t / 240)) : d.s.reward;
     this.addCash(reward);
-    this.emit("kill", { type: d.type });
+    this.emit("kill", { dino: d.type });
     // gore: the head pops, eyes and meat fly, and everything stays on the pavement
     const dir = Math.sign(push) || -d.dir || 1;
     const headX = d.x + d.dir * d.s.width * 0.35;
@@ -712,7 +747,11 @@ export class World {
         kind: "chunk",
         size: 0.7 + this.rand() * 0.7,
       });
-    this.addDecal({ x: d.x, kind: "pool", size: d.type === "brute" ? 1.6 : 1, rot: 0 });
+    this.addDecal({ x: d.x, kind: "pool", size: d.type === "brute" ? 1.9 : 1.3, rot: 0 });
+    this.addDecal({ x: d.x + dir * 40, kind: "smear", size: 1 + this.rand() * 0.6, rot: dir });
+    this.geysers.push({ x: headX, h: d.type === "brute" ? 120 : 84, dir, life: 0.7, acc: 0 });
+    this.bleed(headX, d.type === "brute" ? 130 : 92, dir, 2);
+    if (this.mode === "city" && this.rand() < 0.55) this.addDecal({ x: d.x + dir * (20 + this.rand() * 60), kind: "wall", size: 0.8 + this.rand() * 0.8, h: 70 + this.rand() * 110, rot: this.rand() * 6 });
   }
 
   addCash(n) {

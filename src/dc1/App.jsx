@@ -201,8 +201,10 @@ export default function App() {
               persist();
               setScreen("dead");
               sound.current.stopMusic();
+              sound.current.stopAmbience();
             }, 1400);
         }
+        if (w.player.hp > 0 && w.player.hp / w.player.maxHp < 0.35 && w.scene === "street") sound.current.heartbeat();
         if (green.current) {
           const near = !!w.nearShopDoor || w.atShopExit;
           green.current.dataset.pulse = near ? "1" : "0";
@@ -214,14 +216,26 @@ export default function App() {
     };
     raf = requestAnimationFrame(loop);
     // ?debug exposes the live world for automated play-testing screenshots
-    if (new URLSearchParams(location.search).has("debug")) window.__dc = { world: () => world.current, renderer: renderer.current };
+    if (new URLSearchParams(location.search).has("debug")) window.__dc = { world: () => world.current, renderer: renderer.current, sound: sound.current };
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
       clearTimeout(deadTimer);
       sound.current.stopMusic();
+      sound.current.stopAmbience();
     };
   }, [persist]);
+
+  // browsers (iOS especially) only allow audio to start inside a user gesture
+  useEffect(() => {
+    const unlock = () => sound.current?.ensure();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+    };
+  }, []);
 
   // keyboard
   useEffect(() => {
@@ -261,8 +275,10 @@ export default function App() {
     if (!sound.current) return;
     sound.current.fx = profile.fx;
     sound.current.music = profile.music;
-    if (!profile.music) sound.current.stopMusic();
-    else if (screen === "playing") sound.current.startMusic();
+    if (!profile.music || screen !== "playing") sound.current.stopMusic();
+    else sound.current.startMusic();
+    if (!profile.fx || screen !== "playing") sound.current.stopAmbience();
+    else if (world.current && !sound.current.ambience) sound.current.startAmbience(world.current.mode);
   }, [profile.fx, profile.music, screen]);
 
   const begin = (mode) => {
@@ -274,6 +290,8 @@ export default function App() {
     setPanel(null);
     setConfirmNew(false);
     setScreen("playing");
+    sound.current.stopAmbience();
+    if (live.current.fx) sound.current.startAmbience(mode);
     if (live.current.music) sound.current.startMusic();
   };
   const newCity = () => {
@@ -298,6 +316,7 @@ export default function App() {
     world.current = null;
     input.current = null;
     sound.current.stopMusic();
+    sound.current.stopAmbience();
     setScreen("title");
   };
   const setSetting = (k, v) => {
