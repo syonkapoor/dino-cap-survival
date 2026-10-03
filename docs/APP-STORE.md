@@ -6,6 +6,7 @@ The game is built and wired. This file covers what is left, and who does it.
 - **Team:** Synergi Insights (`CD9F4JR9G3`)
 - **Devices:** iPhone only, landscape only
 - **Ads:** AdMob through `@capacitor-community/admob`. The app currently uses **Google's test IDs**: test ads show and pay nothing.
+- **Verified on an iPhone 17 Pro Max simulator (iOS 26.5):** the app launches in landscape, Google's consent form shows, then Apple's tracking prompt, and a test rewarded ad loads.
 
 ## 1. AdMob (owner, about 20 minutes)
 
@@ -84,17 +85,17 @@ The game is built and wired. This file covers what is left, and who does it.
 - **Keywords (100 characters):** `dinosaur,shooter,zombie,arcade,retro,raptor,gun,survival,action,side scroller,blood,offline`
 - **What's New (1.0):** `Welcome to Raptor Street.`
 
-## 4. Screenshots (Claude can generate)
+## 4. Screenshots (done)
 
-App Store Connect needs iPhone screenshots at **6.9" (1320×2868)** or **6.5" (1284×2778)**. Since the app is landscape, take them landscape: 2868×1320. Suggested set of five:
+Five landscape screenshots at **2868×1320**, the 6.9" iPhone size, are in `docs/screenshots/`. Upload them in this order:
 
-1. A street fight
-2. A pack biting the kid, with blood
-3. The Gun Barn shop
-4. The Survival map picker
-5. The character creator
+1. `1-street-fight.png`: a head-pop kill on the street
+2. `2-pack-attack.png`: a pack biting the kid
+3. `3-gun-barn.png`: the shop
+4. `4-survival.png`: Survival in Cherry Village with the Brawler
+5. `5-character.png`: the character creator
 
-These come from the simulator with `xcrun simctl io booted screenshot`.
+They are rendered from the same game build at the exact device size, with each scene set up through the `?debug` hook.
 
 ## 5. Build and submit (owner, at the Mac)
 
