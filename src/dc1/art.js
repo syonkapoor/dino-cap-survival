@@ -540,14 +540,32 @@ export function drawKid(c, o) {
   c.translate(4, -72 - breath * 2.6);
   const isSwing = swing > 0;
   if (isSwing) {
+    // overhead, two-handed, with the motion smear of the video
     const swingT = 1 - swing / 0.22;
-    const a = -2.2 + swingT * 3.0;
+    const ease = 1 - (1 - swingT) * (1 - swingT);
+    const a = -2.6 + ease * 3.4;
+    for (const [lag, alpha] of [
+      [0.9, 0.16],
+      [0.55, 0.28],
+      [0.25, 0.45],
+    ]) {
+      if (a - lag < -2.6) continue;
+      c.save();
+      c.globalAlpha *= alpha;
+      c.rotate(a - lag + Math.PI / 2);
+      setShade(false);
+      drawMelee(c, melee, 1.05);
+      setShade(true);
+      c.restore();
+    }
     c.rotate(a + Math.PI / 2);
-    drawMelee(c, melee, 0.9);
+    drawMelee(c, melee, 1.05);
     c.rotate(-(a + Math.PI / 2));
     c.rotate(a);
-    blob(c, [[0, -5], [26, -5], [26, 5], [0, 5]]);
+    blob(c, [[0, -6], [28, -6], [30, 6], [0, 6]]);
     inked(c, SKIN, 3);
+    ellipse(c, 28, 0, 7, 7);
+    inked(c, SKIN, 2.5);
   } else {
     // gun held low at the hip, kicking up with each shot
     c.rotate(-recoil * 0.28 + (moving ? Math.sin(walk) * 0.05 : 0));
@@ -579,14 +597,106 @@ export function drawKid(c, o) {
 }
 
 // ---------------------------------------------------------------- dinosaurs
+// Drawn from the gameplay video: chunky body, cyan shark-fin stripes, one huge
+// white eye under an angry brow, a wide red mouth with a tongue, tan throat.
 export const DINO_LOOK = {
-  raptor: { body: "#3f63ae", belly: "#6b90d6", stripe: "#94c4f0", spike: "#f3f1e8", scale: 1, head: null },
-  horned: { body: "#c39467", belly: "#ddb68b", stripe: "#8a5634", spike: "#f3ead6", scale: 1.05, head: null, horns: true },
-  brute: { body: "#6e9853", belly: "#93b874", stripe: "#486b35", spike: "#e9e6cf", scale: 1.5, head: "#e3dfc3" },
+  raptor: { body: "#4a78c9", dark: "#2f539a", stripe: "#a9dcf3", throat: "#c99b7d", spike: "#f3f1e8", scale: 1.15 },
+  horned: { body: "#c3916a", dark: "#8f6143", stripe: "#f0d6b0", throat: "#e2c19c", spike: "#f3ead6", scale: 1.2, horns: true },
+  brute: { body: "#6c9750", dark: "#486b35", stripe: "#b5d68f", throat: "#c9c08f", spike: "#e9e6cf", scale: 1.42, skull: "#e3dfc3" },
 };
 
+// the head on its own, origin at the back of the skull where the neck joins.
+// The video's kill throws exactly this, whole, into the air.
+export function drawDinoHead(c, type, jaw = 0.4, t = 0, severed = false) {
+  const look = DINO_LOOK[type] || DINO_LOOK.raptor;
+  // lower jaw with the tongue and teeth
+  c.save();
+  c.translate(6, 8);
+  c.rotate(jaw);
+  blob(c, [[-4, -4], [56, 0], [62, 10], [50, 20], [4, 18]]);
+  inked(c, look.throat, 3);
+  poly(c, [[6, -2], [56, 1], [52, 9], [8, 10]]);
+  c.fillStyle = "#8e1820";
+  fillPlain(c);
+  blob(c, [[10, 4], [34, 0], [44, 5], [24, 9]]);
+  c.fillStyle = "#d9676b";
+  fillPlain(c);
+  for (let i = 0; i < 6; i++) {
+    poly(c, [[12 + i * 7.5, 1], [15 + i * 7.5, -6], [18 + i * 7.5, 1]]);
+    inked(c, "#fffdf3", 1.4);
+  }
+  c.restore();
+  // skull
+  blob(c, [[-12, -30], [20, -42], [56, -30], [72, -10], [70, 6], [8, 10], [-14, 0]]);
+  inked(c, look.skull || look.body, 3.5);
+  // inside of the mouth + upper teeth
+  poly(c, [[8, 6], [70, 4], [64, 12], [8, 12]]);
+  c.fillStyle = "#8e1820";
+  fillPlain(c);
+  for (let i = 0; i < 8; i++) {
+    poly(c, [[12 + i * 7, 5], [15 + i * 7, 13], [18 + i * 7, 5]]);
+    inked(c, "#fffdf3", 1.4);
+  }
+  if (!look.skull) {
+    // shark-fin stripes running back over the skull
+    for (let i = 0; i < 3; i++) {
+      poly(c, [[-6 + i * 12, -28 + i * 2], [2 + i * 12, -44 + i * 3], [6 + i * 12, -26 + i * 2]]);
+      inked(c, look.stripe, 1.8);
+    }
+  }
+  if (look.horns) {
+    poly(c, [[44, -30], [56, -56], [58, -28]]);
+    inked(c, "#f3ead6", 2.5);
+    poly(c, [[18, -38], [22, -58], [30, -38]]);
+    inked(c, "#f3ead6", 2.5);
+  }
+  if (look.skull) {
+    // brute: pale skull face, dark socket, tiny glint
+    ellipse(c, 26, -16, 13, 11);
+    inked(c, "#2a2224", 2.5);
+    c.fillStyle = "#ffffff";
+    ellipse(c, 30, -18, 3, 3);
+    fillPlain(c);
+    ellipse(c, 60, -8, 3.5, 3);
+    inked(c, "#2a2224", 1.5);
+  } else {
+    // the huge round eye with a pinprick pupil, and the brow that makes it angry
+    const eye = severed ? 15 : 13;
+    ellipse(c, 26, -18, eye, eye);
+    inked(c, "#ffffff", 3);
+    c.fillStyle = INK;
+    ellipse(c, severed ? 26 : 31, -18 + (severed ? 3 : 0), 2.6, 2.6);
+    fillPlain(c);
+    c.beginPath();
+    c.moveTo(10, -36);
+    c.quadraticCurveTo(28, -30, 44, -22);
+    c.lineWidth = 5;
+    c.strokeStyle = INK;
+    c.lineCap = "round";
+    c.stroke();
+  }
+  if (severed) {
+    // the raw end of the neck
+    drawMeat(c, -12, -6, 16);
+  }
+}
+
+// raw meat: red flesh with darker pits and white flecks (the neck stump in the video)
+export function drawMeat(c, x, y, r) {
+  ellipse(c, x, y, r, r * 1.1);
+  inked(c, "#c42532", 3);
+  for (let i = 0; i < 9; i++) {
+    const a = i * 2.4,
+      rr = r * 0.55 * ((i % 3) / 2 + 0.2);
+    c.fillStyle = i % 3 === 0 ? "#f3d6c8" : "#7a0c14";
+    ellipse(c, x + Math.cos(a) * rr, y + Math.sin(a) * rr, 1.8 + (i % 2), 1.8 + (i % 2));
+    fillPlain(c);
+  }
+}
+
 // state: walk | windup | lunge | latched | stagger | recover. dir 1 = facing right.
-export function drawDino(c, d, t = 0) {
+// opts.headless draws the body only, with a meat stump where the head was.
+export function drawDino(c, d, t = 0, opts = {}) {
   const look = DINO_LOOK[d.type];
   const s = look.scale;
   c.save();
@@ -595,197 +705,106 @@ export function drawDino(c, d, t = 0) {
   const walk = st === "walk" ? Math.sin(d.phase) : st === "lunge" ? Math.sin(d.phase * 2) : 0;
   const crouch = st === "windup" ? 10 : st === "latched" ? 4 : 0;
   const stretch = st === "lunge" ? 1.12 : 1;
-  let jaw = 0.18 + Math.max(0, Math.sin(d.phase * 0.7)) * 0.15;
-  if (st === "windup" || st === "lunge") jaw = 0.75;
-  if (st === "latched") jaw = 0.25 + Math.abs(Math.sin(t * 14 + d.id)) * 0.55;
-  if (st === "stagger") jaw = 0.5;
-  // idle breathing when not running, and a lazy tail sway
+  let jaw = 0.22 + Math.max(0, Math.sin(d.phase * 0.7)) * 0.18;
+  if (st === "windup" || st === "lunge") jaw = 0.8;
+  if (st === "latched") jaw = 0.25 + Math.abs(Math.sin(t * 14 + d.id)) * 0.6;
+  if (st === "stagger") jaw = 0.6;
   const idle = st !== "walk" && st !== "lunge";
   const breath = Math.sin(t * 3.1 + d.id * 1.7);
-  c.translate(0, crouch);
+  const hit = d.flash > 0 ? d.flash / 0.1 : 0;
+  c.translate(-hit * 8, crouch);
   if (idle) {
     c.translate(0, -50);
     c.scale(1, 1 + breath * 0.03);
     c.translate(0, 50);
   }
+  // tail, swaying
   c.save();
-  c.translate(-30, -62);
-  c.rotate(Math.sin(t * 2.2 + d.id) * 0.06);
-  c.translate(30, 62);
-  // tail
-  blob(c, [[-30, -70], [-70, -78], [-112, -92], [-118, -88], [-72, -62], [-28, -52]]);
+  c.translate(-44, -78);
+  c.rotate(Math.sin(t * 2.2 + d.id) * 0.07 - 0.05);
+  blob(c, [[6, -14], [-40, -16], [-92, -24], [-100, -18], [-44, 2], [4, 12]]);
   inked(c, look.body, 3.5);
   for (let i = 0; i < 4; i++) {
-    const x = -44 - i * 18,
-      y = -74 - i * 4;
-    poly(c, [[x - 6, y], [x, y - 11], [x + 6, y]]);
-    inked(c, look.spike, 2);
+    const x = -14 - i * 20,
+      y = -12 - i * 2.5;
+    poly(c, [[x - 7, y + 3], [x + 1, y - 12], [x + 6, y + 3]]);
+    inked(c, look.stripe, 1.8);
   }
   c.restore();
-  // back leg
+  // legs: thick thighs, stubby shins, big feet
   const legDraw = (dx, ang, shade) => {
     c.save();
-    c.translate(dx, -52);
+    c.translate(dx, -56);
     c.rotate(ang);
-    blob(c, [[-14, -10], [14, -8], [10, 22], [2, 30], [-10, 24]]);
+    blob(c, [[-18, -14], [18, -12], [14, 20], [4, 30], [-14, 22]]);
+    inked(c, shade, 3.5);
+    poly(c, [[-3, 24], [9, 24], [7, 44], [-4, 44]]);
     inked(c, shade, 3);
-    poly(c, [[0, 26], [6, 26], [4, 44], [-2, 44]]);
+    blob(c, [[-10, 44], [20, 41], [26, 52], [-12, 52]]);
     inked(c, shade, 3);
-    blob(c, [[-6, 44], [16, 42], [20, 50], [-8, 50]]);
-    inked(c, shade, 3);
+    for (const x of [8, 16, 23]) {
+      poly(c, [[x, 49], [x + 5, 52], [x, 54]]);
+      inked(c, "#f3f1e8", 1.2);
+    }
     c.restore();
   };
-  legDraw(-14, walk * 0.45, look.stripe === "#486b35" ? "#5a8044" : shadeOf(look.body));
+  legDraw(-20, walk * 0.5, look.dark);
   // body
   c.save();
   c.scale(stretch, 1);
-  blob(c, [[-40, -78], [-8, -100], [28, -98], [48, -82], [44, -58], [10, -46], [-30, -50]]);
-  inked(c, look.body, 3.5);
-  // belly
-  blob(c, [[-12, -50], [22, -50], [40, -62], [30, -60], [0, -56]]);
-  c.fillStyle = look.belly;
+  blob(c, [[-52, -84], [-14, -110], [30, -108], [56, -88], [52, -58], [14, -44], [-36, -50]]);
+  inked(c, look.body, 3.8);
+  // underside shading, brushy
+  blob(c, [[-40, -54], [10, -48], [48, -62], [30, -54], [-10, -50]]);
+  c.fillStyle = look.dark;
   fillPlain(c);
-  // stripes
-  c.strokeStyle = look.stripe;
-  c.lineWidth = 4;
-  for (let i = 0; i < 4; i++) {
-    c.beginPath();
-    c.moveTo(-26 + i * 15, -92 + i * 1.5);
-    c.quadraticCurveTo(-20 + i * 15, -80, -24 + i * 15, -68);
-    c.stroke();
-  }
-  // back spikes
+  // shark-fin stripes along the back and flank
   for (let i = 0; i < 5; i++) {
-    const x = -30 + i * 14,
-      y = -96 - Math.sin(i * 0.8) * 3;
-    poly(c, [[x - 6, y + 3], [x + 1, y - 12], [x + 7, y + 3]]);
-    inked(c, look.spike, 2);
+    const x = -36 + i * 17,
+      y = -100 + Math.abs(i - 2) * 3;
+    poly(c, [[x - 6, y + 22], [x + 2, y - 2], [x + 8, y + 22]]);
+    inked(c, look.stripe, 1.8);
+  }
+  // spikes
+  for (let i = 0; i < 5; i++) {
+    const x = -32 + i * 15,
+      y = -106 - Math.sin(i * 0.8) * 3;
+    poly(c, [[x - 5, y + 3], [x + 1, y - 10], [x + 6, y + 3]]);
+    inked(c, look.spike, 1.8);
   }
   c.restore();
-  legDraw(8, -walk * 0.45, look.body);
-  // little arms
+  legDraw(8, -walk * 0.5, look.body);
+  // little arms, clawing
   c.save();
-  c.translate(40, -70);
-  c.rotate(0.6 + (st === "latched" ? Math.sin(t * 20) * 0.3 : 0));
-  blob(c, [[0, -4], [18, -2], [20, 4], [0, 4]]);
+  c.translate(44, -78);
+  c.rotate(0.7 + (st === "latched" ? Math.sin(t * 20) * 0.35 : Math.sin(t * 4 + d.id) * 0.1));
+  blob(c, [[0, -5], [20, -3], [24, 4], [0, 5]]);
   inked(c, look.body, 2.5);
   c.restore();
-  // head
-  c.save();
-  c.translate(46 * stretch, -92);
-  c.rotate(st === "latched" ? 0.25 : st === "lunge" ? -0.1 : 0.05);
-  // lower jaw
-  c.save();
-  c.translate(4, 4);
-  c.rotate(jaw);
-  blob(c, [[0, -2], [52, 2], [50, 14], [6, 14]]);
-  inked(c, look.body, 3);
-  poly(c, [[6, 0], [50, 3], [48, 9], [6, 8]]);
-  c.fillStyle = "#7a1016";
-  fillPlain(c);
-  for (let i = 0; i < 6; i++) {
-    poly(c, [[10 + i * 7, 2], [13 + i * 7, -6], [16 + i * 7, 2]]);
-    inked(c, "#fffdf3", 1.5);
-  }
-  c.restore();
-  // upper head
-  const skull = look.head;
-  blob(c, [[-8, -26], [24, -34], [58, -18], [62, 2], [8, 6], [-12, -4]]);
-  inked(c, skull || look.body, 3.5);
-  // mouth interior + upper teeth
-  poly(c, [[8, 4], [60, 2], [56, 8], [8, 9]]);
-  c.fillStyle = "#7a1016";
-  fillPlain(c);
-  for (let i = 0; i < 7; i++) {
-    poly(c, [[12 + i * 7, 2], [15 + i * 7, 11], [18 + i * 7, 2]]);
-    inked(c, "#fffdf3", 1.5);
-  }
-  if (look.horns) {
-    poly(c, [[34, -24], [44, -46], [46, -22]]);
-    inked(c, "#f3ead6", 2.5);
-    poly(c, [[14, -30], [18, -48], [24, -30]]);
-    inked(c, "#f3ead6", 2.5);
-  }
-  if (!skull) {
-    // head spikes
-    for (let i = 0; i < 3; i++) {
-      poly(c, [[-6 + i * 8, -24], [-10 + i * 8, -36], [0 + i * 8, -28]]);
-      inked(c, look.spike, 2);
-    }
-    // big angry white eye
-    ellipse(c, 18, -16, 9, 8);
-    inked(c, "#ffffff", 2.5);
-    c.fillStyle = INK;
-    ellipse(c, 22, -15, 2.4, 2.6);
-    fillPlain(c);
-    c.beginPath();
-    c.moveTo(6, -28);
-    c.lineTo(30, -20);
-    c.lineWidth = 4;
-    c.strokeStyle = INK;
-    c.stroke();
+  // neck and head
+  if (opts.headless) {
+    blob(c, [[34, -108], [58, -104], [60, -76], [40, -70]]);
+    inked(c, look.body, 3.5);
+    drawMeat(c, 56, -92, 15);
   } else {
-    // brute: pale skull face with dark sockets and a tiny glint
-    ellipse(c, 20, -14, 11, 9);
-    inked(c, "#2a2224", 2);
-    c.fillStyle = "#ffffff";
-    ellipse(c, 23, -15, 2.5, 2.5);
-    fillPlain(c);
-    ellipse(c, 50, -10, 3, 2.5);
-    inked(c, "#2a2224", 1.5);
-    blob(c, [[-6, -24], [-14, -10], [-8, 2], [-2, -10]]);
-    inked(c, look.body, 2.5);
+    c.save();
+    c.translate(48 * stretch, -100);
+    c.rotate((st === "latched" ? 0.25 : st === "lunge" ? -0.12 : 0.04) - hit * 0.35);
+    drawDinoHead(c, d.type, jaw, t);
+    c.restore();
   }
-  c.restore();
   c.restore();
 }
 
-function shadeOf(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  const f = (v) => Math.max(0, Math.round(v * 0.8));
-  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
-}
-
-// a headless body slumped on its side
-export function drawCorpse(c, type, dir, burnt) {
-  const look = DINO_LOOK[type];
+// a killed dino: stands headless for a beat, then slumps in a heap. k = 0..1 slump.
+export function drawCorpse(c, type, dir, burnt, k = 1, t = 0) {
   c.save();
-  c.scale(dir * look.scale, look.scale);
-  const col = burnt ? "#3a3030" : look.body;
-  // a leg kicked up in the air, then the slumped body and tail
-  c.save();
-  c.translate(-6, -40);
-  c.rotate(-0.5);
-  blob(c, [[-8, 0], [8, 0], [10, -34], [2, -40], [-8, -32]]);
-  inked(c, col, 3);
-  blob(c, [[-6, -38], [14, -46], [18, -40], [-2, -32]]);
-  inked(c, col, 2.5);
-  c.restore();
-  blob(c, [[-104, -10], [-60, -20], [-34, -48], [6, -62], [38, -50], [48, -26], [40, -4], [-40, -2], [-100, -4]]);
-  inked(c, col, 3.5);
-  if (!burnt) {
-    c.strokeStyle = look.stripe;
-    c.lineWidth = 4;
-    for (let i = 0; i < 3; i++) {
-      c.beginPath();
-      c.moveTo(-18 + i * 16, -52 + i * 2);
-      c.quadraticCurveTo(-14 + i * 16, -36, -18 + i * 16, -14);
-      c.stroke();
-    }
-  }
-  for (let i = 0; i < 4; i++) {
-    const x = -24 + i * 14,
-      y = -56 - Math.sin(i) * 4;
-    poly(c, [[x - 6, y + 4], [x, y - 8], [x + 6, y + 4]]);
-    inked(c, look.spike, 2);
-  }
-  ellipse(c, 44, -20, 10, 13);
-  inked(c, "#9b1119", 2.5);
-  ellipse(c, 46, -20, 5, 7);
-  c.fillStyle = "#e9dcc6";
-  fillPlain(c);
-  blob(c, [[-10, -8], [8, -10], [16, 2], [-12, 2]]);
-  inked(c, col, 2.5);
+  c.rotate(dir * 0.32 * k);
+  c.scale(1, 1 - 0.42 * k);
+  const d = { type, dir, state: "stagger", phase: 0, id: 0, flash: 0 };
+  if (burnt) setTint("#3a3030");
+  drawDino(c, d, t, { headless: true });
+  if (burnt) setTint(null);
   c.restore();
 }
 
@@ -807,19 +826,8 @@ export function drawGib(c, kind, size, rot, type = "raptor", seed = 0) {
     c.strokeStyle = "#b0141c";
     c.stroke();
   } else if (kind === "head") {
-    const look = DINO_LOOK[type] || DINO_LOOK.raptor;
-    blob(c, [[-18, -10], [8, -16], [26, -6], [24, 8], [-16, 8]]);
-    inked(c, look.head || look.body, 3);
-    ellipse(c, -16, 0, 7, 9);
-    inked(c, "#9b1119", 2.5);
-    c.beginPath();
-    c.moveTo(4, -8);
-    c.lineTo(10, -2);
-    c.moveTo(10, -8);
-    c.lineTo(4, -2);
-    c.lineWidth = 2.5;
-    c.strokeStyle = INK;
-    c.stroke();
+    c.scale(0.9, 0.9);
+    drawDinoHead(c, type, 0.7, 0, true);
   } else {
     const r = (k) => ((Math.sin(seed * 13.7 + k * 3.1) + 1) / 2) * 4;
     blob(c, [[-10 - r(1), -4], [-2, -9 - r(2)], [10 + r(3), -5], [9, 6 + r(4)], [-6, 8]]);

@@ -12,10 +12,10 @@ export const SAVE_VERSION = 1;
 // unlock = the City Grind level from which the clerk hangs it on the rack.
 export const WEAPONS = [
   // melee (blue button). The club is what the kid starts with.
-  { id: "club", name: "Spiked Club", family: "melee", damage: 9, rate: 0.34, reach: 96, knock: 260, price: 0, unlock: 1 },
-  { id: "crowbar", name: "Crowbar", family: "melee", damage: 15, rate: 0.32, reach: 104, knock: 300, price: 650, unlock: 2 },
-  { id: "axe", name: "Fireman's Axe", family: "melee", damage: 28, rate: 0.4, reach: 112, knock: 340, price: 2000, unlock: 6 },
-  { id: "chainsaw", name: "Chainsaw", family: "melee", damage: 9, rate: 0.07, reach: 108, knock: 120, price: 6000, unlock: 9 },
+  { id: "club", name: "Spiked Club", family: "melee", damage: 9, rate: 0.34, reach: 185, knock: 300, price: 0, unlock: 1 },
+  { id: "crowbar", name: "Crowbar", family: "melee", damage: 15, rate: 0.32, reach: 192, knock: 340, price: 650, unlock: 2 },
+  { id: "axe", name: "Fireman's Axe", family: "melee", damage: 28, rate: 0.4, reach: 200, knock: 380, price: 2000, unlock: 6 },
+  { id: "chainsaw", name: "Chainsaw", family: "melee", damage: 9, rate: 0.07, reach: 195, knock: 140, price: 6000, unlock: 9 },
   // guns (orange button)
   { id: "usp", name: "USP .45", family: "pistol", damage: 10, rate: 0.3, range: 720, price: 0, unlock: 1, ammoPack: 60, ammoPrice: 40, startAmmo: 120 },
   { id: "magnum", name: ".44 Magnum", family: "pistol", damage: 26, rate: 0.5, range: 760, pierce: 1, price: 300, unlock: 1, ammoPack: 30, ammoPrice: 60, startAmmo: 36 },
@@ -53,9 +53,9 @@ export const MEDKIT = { id: "medkit", name: "Med Kit", price: 50, heal: 50 };
 
 // "some fast, some big, some tough, some blue." Every dinosaur bites; none shoot.
 export const DINOS = {
-  raptor: { name: "Blue Raptor", hp: 20, speed: 118, lungeRange: 165, lungeSpeed: 430, lungeDist: 150, bite: 5, biteRate: 0.5, knockResist: 0, width: 96, reward: 8, blitzReward: 30, from: 1 },
-  horned: { name: "Horned Raptor", hp: 46, speed: 96, lungeRange: 150, lungeSpeed: 380, lungeDist: 130, bite: 7, biteRate: 0.55, knockResist: 0.25, width: 104, reward: 15, blitzReward: 45, from: 3 },
-  brute: { name: "Green Brute", hp: 150, speed: 62, lungeRange: 130, lungeSpeed: 300, lungeDist: 110, bite: 14, biteRate: 0.8, knockResist: 0.75, width: 150, reward: 40, blitzReward: 90, from: 8 },
+  raptor: { name: "Blue Raptor", hp: 20, speed: 130, lungeRange: 300, lungeSpeed: 560, lungeDist: 210, bite: 5, biteRate: 0.5, knockResist: 0, width: 145, reward: 8, blitzReward: 30, from: 1 },
+  horned: { name: "Horned Raptor", hp: 46, speed: 108, lungeRange: 290, lungeSpeed: 500, lungeDist: 190, bite: 7, biteRate: 0.55, knockResist: 0.25, width: 155, reward: 15, blitzReward: 45, from: 3 },
+  brute: { name: "Green Brute", hp: 150, speed: 70, lungeRange: 300, lungeSpeed: 400, lungeDist: 160, bite: 14, biteRate: 0.8, knockResist: 0.75, width: 215, reward: 40, blitzReward: 90, from: 8 },
 };
 export const dinoStats = (type, level = 1) => {
   const d = DINOS[type],

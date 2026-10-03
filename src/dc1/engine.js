@@ -454,7 +454,7 @@ export class World {
 
   spawn(type, side, offset = 0) {
     const p = this.player,
-      half = this.viewW / 2 + 90;
+      half = this.viewW / 2 + 230;
     // off-screen on the given side; at the very end of the street they
     // come out of the last building instead of appearing behind the kid
     let x = p.x + side * (half + offset);
@@ -512,7 +512,7 @@ export class World {
       const dist = p.x - d.x,
         adist = Math.abs(dist),
         dir = Math.sign(dist) || 1;
-      const contact = 26 + d.s.width * 0.22;
+      const contact = d.s.width * 0.92;
       d.timer -= dt;
       switch (d.state) {
         case "walk":
@@ -556,7 +556,7 @@ export class World {
     const p = this.player;
     d.state = "latched";
     d.side = Math.sign(d.x - p.x) || -p.facing;
-    d.offset = 34 + this.rand() * 40 + (d.type === "brute" ? 26 : 0);
+    d.offset = d.s.width * 0.78 + this.rand() * 28;
     d.biteCool = 0.12;
     d.vx = 0;
   }
@@ -567,7 +567,7 @@ export class World {
     p.hp = Math.max(0, p.hp - d.s.bite);
     p.hurt = 0.15;
     p.blood = Math.min(14, p.blood + 1);
-    this.bleed(p.x + d.side * 12, 70 + this.rand() * 40, -d.side, 0.7);
+    this.bleed(p.x + d.side * 16, 90 + this.rand() * 55, -d.side, 0.8);
     this.emit("bite", { dino: d.type });
   }
 
@@ -713,7 +713,7 @@ export class World {
     d.hp -= amount;
     d.flash = 0.1;
     const dir = Math.sign(push) || this.player.facing;
-    this.bleed(d.x - dir * d.s.width * 0.15, (d.type === "brute" ? 120 : 82) + (this.rand() - 0.5) * 30, dir, Math.min(1.6, 0.5 + amount / 40));
+    this.bleed(d.x + d.dir * d.s.width * 0.55, (d.type === "brute" ? 170 : 112) + (this.rand() - 0.5) * 40, dir, Math.min(1.8, 0.6 + amount / 35));
     d.burn = burn ? 0.4 : d.burn;
     if (d.hp <= 0) return this.kill(d, push);
     this.unlatch(d, push);
@@ -730,16 +730,18 @@ export class World {
     this.emit("kill", { dino: d.type });
     // gore: the head pops, eyes and meat fly, and everything stays on the pavement
     const dir = Math.sign(push) || -d.dir || 1;
-    const headX = d.x + d.dir * d.s.width * 0.35;
-    this.corpses.push({ x: d.x, type: d.type, dir: d.dir, life: 2.2, max: 2.2, burnt: !!d.burn });
-    this.gibs.push({ x: headX, y: -70, vx: dir * (60 + this.rand() * 80), vy: -520, rot: 0, vr: 9, kind: "head", type: d.type, size: d.type === "brute" ? 1.4 : 1 });
+    const big = d.type === "brute" ? 1.45 : 1;
+    const headX = d.x + d.dir * d.s.width * 0.75;
+    this.corpses.push({ x: d.x, type: d.type, dir: d.dir, life: 4.5, max: 4.5, burnt: !!d.burn });
+    // the head goes up whole, spinning, and lands somewhere behind
+    this.gibs.push({ x: headX, y: -135 * big, vx: dir * (90 + this.rand() * 120), vy: -500 - this.rand() * 110, rot: 0, vr: dir * (7 + this.rand() * 6), kind: "head", type: d.type, size: big });
     for (let i = 0; i < 2; i++)
-      this.gibs.push({ x: headX, y: -80, vx: dir * (40 + this.rand() * 160) + (this.rand() - 0.5) * 120, vy: -380 - this.rand() * 260, rot: 0, vr: 14, kind: "eye", size: 1 });
+      this.gibs.push({ x: headX, y: -110, vx: dir * (40 + this.rand() * 160) + (this.rand() - 0.5) * 120, vy: -380 - this.rand() * 260, rot: 0, vr: 14, kind: "eye", size: 1 });
     const chunks = 3 + Math.floor(this.rand() * 4);
     for (let i = 0; i < chunks; i++)
       this.gibs.push({
         x: d.x + (this.rand() - 0.5) * 40,
-        y: -50,
+        y: -90,
         vx: dir * (30 + this.rand() * 220) + (this.rand() - 0.5) * 140,
         vy: -260 - this.rand() * 380,
         rot: this.rand() * 6,
@@ -749,8 +751,9 @@ export class World {
       });
     this.addDecal({ x: d.x, kind: "pool", size: d.type === "brute" ? 1.9 : 1.3, rot: 0 });
     this.addDecal({ x: d.x + dir * 40, kind: "smear", size: 1 + this.rand() * 0.6, rot: dir });
-    this.geysers.push({ x: headX, h: d.type === "brute" ? 120 : 84, dir, life: 0.7, acc: 0 });
-    this.bleed(headX, d.type === "brute" ? 130 : 92, dir, 2);
+    // the neck pumps while the body is still standing
+    this.geysers.push({ x: d.x + d.dir * d.s.width * 0.5, h: 125 * big, dir: -dir * 0.3, life: 0.6, acc: 0 });
+    this.bleed(headX, 125 * big, dir, 2.2);
     if (this.mode === "city" && this.rand() < 0.55) this.addDecal({ x: d.x + dir * (20 + this.rand() * 60), kind: "wall", size: 0.8 + this.rand() * 0.8, h: 70 + this.rand() * 110, rot: this.rand() * 6 });
   }
 

@@ -30,8 +30,11 @@ import {
   drawSplat,
   drawSmear,
   drawWallSplat,
+  drawDinoHead,
 } from "./art.js";
 
+// the video's camera is close: characters are about a third of the screen tall
+export const CHAR = 1.3;
 export const SIDEWALK_TOP = 398;
 export const CURB_Y = 458;
 const SHOP_FLOOR_Y = 478;
@@ -53,7 +56,7 @@ function paintSkyline(w, h, seed, far) {
   const cv = offscreen(w, h),
     c = cv.getContext("2d"),
     r = rng(seed);
-  c.fillStyle = far ? "#363c4f" : "#2b3040";
+  c.fillStyle = far ? "#8996a6" : "#6f7d8e";
   let x = -20;
   while (x < w) {
     const bw = 60 + r() * (far ? 140 : 110),
@@ -62,15 +65,15 @@ function paintSkyline(w, h, seed, far) {
     if (!far && r() < 0.6)
       for (let i = 0; i < 6; i++)
         if (r() < 0.35) {
-          c.fillStyle = "#5d5a45";
+          c.fillStyle = "#5e6a79";
           c.fillRect(x + 8 + r() * (bw - 20), h - bh + 10 + r() * (bh - 30), 6, 8);
-          c.fillStyle = "#2b3040";
+          c.fillStyle = "#6f7d8e";
         }
     if (far && r() < 0.25) {
       // a construction crane
       const cx = x + bw / 2,
         top = h - bh - 90;
-      c.strokeStyle = "#363c4f";
+      c.strokeStyle = "#8996a6";
       c.lineWidth = 4;
       c.beginPath();
       c.moveTo(cx, h - bh);
@@ -161,7 +164,7 @@ const SIGNS = {
   laundro: { panel: "#ffffff", border: "#2e8b3a", text: "#e9f6e0", stroke: "#1f6b2a", tilt: 0, size: 38 },
   jumbo: { panel: "#ffffff", border: "#7a3cc8", text: "#8b4fe0", stroke: "#3a1470", tilt: 0, size: 44 },
 };
-const WALLS = { deli: "#5b6866", checks: "#56605e", ammo: "#5a6461", laundro: "#5f6662", jumbo: "#535d5b", motel: "#605a57", house: "#5c7366", lot: null };
+const WALLS = { deli: "#6c8783", checks: "#667e7a", ammo: "#6a827e", laundro: "#718682", jumbo: "#637a77", motel: "#77726d", house: "#6b8876", lot: null };
 export const BUILD_H = 330;
 
 function paintBuilding(b) {
@@ -247,8 +250,8 @@ function paintBuilding(b) {
   hatch(c, w - 50, top, 44, h - top, 6, 0.42);
   // ground-floor storefront band
   poly(c, [[6, h - 150], [w - 6, h - 150], [w - 6, h], [6, h]]);
-  inked(c, "#47504f", 4);
-  hatch(c, 6, h - 150, w - 12, 16, 5, 0.45);
+  inked(c, "#566b6a", 4);
+  hatch(c, 6, h - 150, w - 12, 16, 5, 0.32);
   // two lit side windows with blinds, as in the footage
   for (const x of [40, w - 120]) {
     poly(c, [[x, h - 112], [x + 80, h - 112], [x + 80, h - 34], [x, h - 34]]);
@@ -442,17 +445,24 @@ export class Renderer {
         if (d.kind === "pool") drawPool(c, d.size, d.seed);
         else if (d.kind === "splat") drawSplat(c, d.size, d.seed);
         else if (d.kind === "smear") drawSmear(c, d.size, d.rot, d.seed);
-        else drawGib(c, d.kind, d.size * 0.9, d.kind === "eye" ? 0 : d.rot, d.type, d.seed);
+        else {
+          c.scale(CHAR, CHAR);
+          // a head that landed lies on its side
+          drawGib(c, d.kind, d.size * 0.9, d.kind === "eye" ? 0 : d.kind === "head" ? (d.rot > 0 ? 1.4 : -1.4) : d.rot, d.type, d.seed);
+        }
       }
       c.restore();
     }
     for (const k of world.corpses) {
       const x = k.x - cam;
-      if (x < -200 || x > W + 200) continue;
+      if (x < -260 || x > W + 260) continue;
       c.save();
       c.globalAlpha = Math.min(1, k.life / 0.6);
       c.translate(x, GROUND_Y + 4);
-      drawCorpse(c, k.type, k.dir, k.burnt);
+      c.scale(CHAR, CHAR);
+      const age = k.max - k.life;
+      const slump = Math.min(1, Math.max(0, (age - 0.45) / 0.3));
+      drawCorpse(c, k.type, k.dir, k.burnt, slump * slump, this.t);
       c.restore();
     }
     // drops (Jungle Blitz)
@@ -488,6 +498,7 @@ export class Renderer {
       if (x < -200 || x > W + 200) return;
       c.save();
       c.translate(x, GROUND_Y + (d.id % 3) * 4 - 4);
+      c.scale(CHAR, CHAR);
       drawDino(c, d, this.t);
       if (d.flash > 0) {
         c.globalAlpha = 0.6;
@@ -502,10 +513,13 @@ export class Renderer {
       }
       c.restore();
     };
-    for (const d of order) if (d.state !== "latched") drawD(d);
+    // every dino, the ones biting included, sits behind the kid: their jaws close
+    // around him and he stays readable, as in the footage
+    for (const d of order) drawD(d);
     // the kid
     c.save();
     c.translate(p.x - cam, GROUND_Y);
+    c.scale(CHAR, CHAR);
     ellipse(c, 0, 4, 30, 7);
     c.fillStyle = "rgba(0,0,0,.25)";
     fillPlain(c);
@@ -537,8 +551,6 @@ export class Renderer {
       setTint(null);
     }
     c.restore();
-    // the pack eating him is drawn over him
-    for (const d of order) if (d.state === "latched") drawD(d);
 
     this.drawEffects(world, cam);
     if (city) this.drawStreetFront(world, cam);
@@ -550,9 +562,9 @@ export class Renderer {
     const c = this.c,
       W = this.W;
     const g = c.createLinearGradient(0, 0, 0, SIDEWALK_TOP);
-    g.addColorStop(0, "#343843");
-    g.addColorStop(0.7, "#5b6068");
-    g.addColorStop(1, "#6f6e6a");
+    g.addColorStop(0, "#8e9bab");
+    g.addColorStop(0.75, "#b1bac3");
+    g.addColorStop(1, "#c2c6c4");
     c.fillStyle = g;
     c.fillRect(0, 0, W, SIDEWALK_TOP);
     // clouds
@@ -580,9 +592,9 @@ export class Renderer {
       if (i % 3 === 0) this.drawHydrant(x + 170);
     }
     // sidewalk
-    c.fillStyle = "#958d79";
+    c.fillStyle = "#aca592";
     c.fillRect(0, SIDEWALK_TOP, W, CURB_Y - SIDEWALK_TOP);
-    c.fillStyle = "#857d69";
+    c.fillStyle = "#968f7c";
     c.fillRect(0, SIDEWALK_TOP, W, 6);
     c.strokeStyle = "rgba(0,0,0,.22)";
     c.lineWidth = 2;
@@ -625,7 +637,7 @@ export class Renderer {
       W = this.W,
       H = this.H;
     // curb with storm drains
-    c.fillStyle = "#6d6a63";
+    c.fillStyle = "#8b877d";
     c.fillRect(0, CURB_Y, W, 14);
     c.fillStyle = INK;
     c.fillRect(0, CURB_Y, W, 3);
@@ -633,13 +645,13 @@ export class Renderer {
     for (let x = -((cam % 420) + 420) + 160; x < W + 100; x += 420) {
       poly(c, [[x, CURB_Y + 2], [x + 90, CURB_Y + 2], [x + 90, CURB_Y + 16], [x, CURB_Y + 16]]);
       inked(c, "#2a2626", 2.5);
-      c.fillStyle = "#6d6a63";
+      c.fillStyle = "#8b877d";
       for (let k = 1; k < 6; k++) c.fillRect(x + k * 15, CURB_Y + 4, 4, 10);
     }
     // road
-    c.fillStyle = "#b3aa95";
+    c.fillStyle = "#c5bda7";
     c.fillRect(0, CURB_Y + 17, W, H - CURB_Y - 17);
-    c.fillStyle = "#c2b9a4";
+    c.fillStyle = "#d0c9b4";
     c.fillRect(0, CURB_Y + 17, W, 8);
     c.fillStyle = "#ebe6d6";
     for (let x = -((cam * 1.05) % 260); x < W; x += 260) c.fillRect(x, H - 34, 130, 8);
@@ -882,6 +894,7 @@ export class Renderer {
         c.restore();
         continue;
       }
+      c.scale(CHAR, CHAR);
       drawGib(c, g.kind, g.size, g.rot, g.type, 3);
       if (g.kind !== "eye") {
         c.fillStyle = "#b0141c";
@@ -1003,6 +1016,7 @@ export class Renderer {
     const p = world.player;
     c.save();
     c.translate(s.x - cam, SHOP_FLOOR_Y);
+    c.scale(1.15, 1.15);
     ellipse(c, 0, 4, 30, 7);
     c.fillStyle = "rgba(0,0,0,.2)";
     fillPlain(c);
@@ -1059,7 +1073,7 @@ export class Renderer {
     // a warm, dirty grade
     c.save();
     c.globalCompositeOperation = "multiply";
-    c.fillStyle = "rgba(236,214,180,0.55)";
+    c.fillStyle = "rgba(240,224,196,0.3)";
     c.fillRect(0, 0, W, H);
     c.restore();
     // vignette
@@ -1068,7 +1082,7 @@ export class Renderer {
         x = cv.getContext("2d");
       const g = x.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H * 0.5, W * 0.72);
       g.addColorStop(0, "rgba(0,0,0,0)");
-      g.addColorStop(1, "rgba(10,6,4,0.55)");
+      g.addColorStop(1, "rgba(10,6,4,0.32)");
       x.fillStyle = g;
       x.fillRect(0, 0, W, H);
       return cv;
@@ -1089,7 +1103,7 @@ export class Renderer {
       return cv;
     });
     c.save();
-    c.globalAlpha = 0.18;
+    c.globalAlpha = 0.09;
     const ox = Math.floor(Math.random() * 200),
       oy = Math.floor(Math.random() * 200);
     for (let x = -ox; x < W; x += 200) for (let y = -oy; y < H; y += 200) c.drawImage(grain, x, y);
@@ -1146,7 +1160,11 @@ export class Renderer {
       // a dino head with a red X through it
       c.save();
       c.translate(W / 2 - 76, 38);
-      drawGib(c, "head", 1.15, 0, "raptor");
+      c.save();
+      c.scale(0.4, 0.4);
+      c.translate(-30, 18);
+      drawDinoHead(c, "raptor", 0.5);
+      c.restore();
       c.strokeStyle = INK;
       c.lineWidth = 11;
       c.lineCap = "round";
