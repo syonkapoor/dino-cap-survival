@@ -1,0 +1,9 @@
+{
+  "appId": "com.synergiinsights.raptorstreet",
+  "appName": "Raptor Street",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#000000"
+  }
+}
