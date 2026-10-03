@@ -2,7 +2,7 @@
 // irregular curves. Every function draws with its origin at the feet (or the
 // object's base) so the renderer only translates. Original art: nothing here
 // is traced from or copies Triniti's sprites.
-import { WEAPON } from "./data.js";
+import { WEAPON, SKINS, OUTFITS, SHOES, BOWS, baseLook } from "./data.js";
 
 export const INK = "#141218";
 export const FONT = '"Bangers", "Impact", "Arial Black", sans-serif';
@@ -355,13 +355,17 @@ export function drawAmmoIcon(c, family, x, y, s = 1) {
   c.restore();
 }
 
-// ---------------------------------------------------------------- the kid
-// Chibi proportions from the footage: a big round head, wide tired eyes,
-// white #8 jersey with red trim, white shorts, red shoes. ~140px tall.
-const SKIN = "#4f2f1d",
-  SKIN_D = "#3a2114",
-  SKIN_L = "#6a4129";
-// where blood lands on the kid, in order, as the bites add up
+// ---------------------------------------------------------------- the characters
+// Chibi proportions from the footage: a big round head, wide eyes that look up,
+// heavy outlines. The KID wears a numbered jersey; the WARRIOR GIRL has long
+// black hair, a bow, a dress and swings a wooden "10t" hammer.
+
+const shade = (hex, f = 0.78) => {
+  const n = parseInt(hex.slice(1), 16);
+  const k = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
+  return `rgb(${k(n >> 16)},${k((n >> 8) & 255)},${k(n & 255)})`;
+};
+// where blood lands, in order, as the bites add up
 const KID_SPLATS = [
   [6, -78, 7], [-8, -64, 6], [14, -58, 5], [18, -112, 6], [-4, -92, 5], [2, -50, 6], [26, -100, 4],
   [-12, -80, 4], [10, -40, 5], [30, -120, 4], [-6, -122, 5], [-14, -56, 4], [22, -70, 5], [8, -136, 4],
@@ -377,6 +381,76 @@ function splat(c, x, y, r, seed) {
   c.fillStyle = "#a3101a";
   c.fill();
 }
+
+// the girl's melee weapon: a wooden barrel hammer stencilled "10t"
+export function drawHammer(c, size = 1) {
+  c.save();
+  c.scale(size, size);
+  poly(c, [[-3, 8], [3, 8], [3, -50], [-3, -50]]);
+  inked(c, "#8a5530", 2.5);
+  blob(c, [[-30, -86], [26, -84], [30, -50], [-28, -48]]);
+  inked(c, "#b4653b", 3.5);
+  for (const y of [-80, -54]) {
+    poly(c, [[-30, y - 3], [30, y - 3], [30, y + 3], [-30, y + 3]]);
+    inked(c, "#c9a24a", 2);
+  }
+  c.font = `20px ${FONT}`;
+  c.textAlign = "center";
+  c.textBaseline = "middle";
+  c.fillStyle = "#3b1d0e";
+  c.fillText("10t", 0, -67);
+  c.restore();
+}
+
+function hairBack(c, look) {
+  if (look.char !== "girl") return;
+  c.fillStyle = "#141010";
+  if (look.hair === 0) blob(c, [[-34, -50], [-40, -10], [-36, 40], [-14, 46], [10, 30], [24, -20]]);
+  else if (look.hair === 1) blob(c, [[-36, -48], [-40, -8], [-30, 6], [24, 2], [30, -30]]);
+  else blob(c, [[-30, -54], [-58, -40], [-66, -6], [-52, 6], [-40, -24], [-20, -40]]);
+  inked(c, "#141010", 3);
+}
+function hairFront(c, look) {
+  const dark = "#130e0c";
+  if (look.char === "girl") {
+    // bangs and the bow
+    blob(c, [[-32, -36], [-26, -58], [0, -66], [26, -60], [36, -40], [30, -34], [16, -46], [0, -42], [-14, -46]]);
+    inked(c, dark, 2.5);
+    c.save();
+    c.translate(-6, -62);
+    c.rotate(-0.3);
+    const bow = BOWS[look.bow];
+    blob(c, [[0, 0], [-22, -16], [-28, -2], [-8, 6]]);
+    inked(c, bow, 2.5);
+    blob(c, [[0, 0], [24, -14], [28, 2], [8, 6]]);
+    inked(c, bow, 2.5);
+    blob(c, [[-6, 2], [-18, 26], [-10, 28], [0, 6]]);
+    inked(c, bow, 2);
+    ellipse(c, 0, 1, 6, 5);
+    inked(c, bow, 2);
+    c.restore();
+    return;
+  }
+  if (look.hair === 1) {
+    // afro
+    blob(c, [[-40, -30], [-42, -58], [-20, -78], [12, -80], [38, -64], [42, -38], [30, -46], [0, -52], [-24, -46]]);
+    inked(c, dark, 2.5);
+  } else if (look.hair === 2) {
+    // buzz: a thin cap of hair
+    blob(c, [[-32, -38], [-26, -58], [0, -63], [26, -57], [33, -40], [22, -50], [0, -54], [-20, -50]]);
+    c.fillStyle = "#2a1d17";
+    fillPlain(c);
+  } else if (look.hair === 3) {
+    // mohawk
+    blob(c, [[-14, -52], [-8, -76], [6, -82], [18, -72], [16, -54]]);
+    inked(c, dark, 2.5);
+  } else {
+    // flat top, faded at the sides
+    blob(c, [[-32, -36], [-28, -62], [-4, -70], [24, -64], [34, -42], [26, -50], [2, -54], [-22, -50]]);
+    inked(c, dark, 2.5);
+  }
+}
+
 export function drawKid(c, o) {
   const {
     facing = 1,
@@ -392,106 +466,133 @@ export function drawKid(c, o) {
     recoil = 0,
     blood = 0,
     hurt = 0,
+    aim = 0,
   } = o;
+  const look = o.look || baseLook();
+  const girl = look.char === "girl";
+  const SKIN = SKINS[look.skin],
+    SKIN_D = shade(SKIN, 0.75);
+  const fit = OUTFITS[look.outfit];
+  const shoe = SHOES[look.shoes];
   c.save();
   c.scale(facing, 1);
   // gait: a bouncy stride with a forward lean; standing still he breathes
   const stride = moving ? Math.sin(walk) : 0;
   const bob = moving ? Math.abs(Math.cos(walk)) * 5 : 0;
   const breath = moving ? 0 : Math.sin(t * 2.6);
-  const lean = moving ? 0.07 : 0;
-  const kick = recoil * 4;
-  c.translate(-kick, -bob);
-  // legs (drawn from the hip, so they swing)
+  const lean = moving ? 0.08 : 0;
+  c.translate(-recoil * 4, -bob);
   const leg = (dx, ang, back) => {
     c.save();
     c.translate(dx, -34);
     c.rotate(ang);
-    poly(c, [[-7, -2], [7, -2], [6, 18], [-6, 18]]);
-    inked(c, back ? "#d6d1c6" : "#efebe2", 3);
-    poly(c, [[-5, 16], [5, 16], [5, 24], [-5, 24]]);
-    inked(c, back ? SKIN_D : SKIN, 2.5);
+    if (girl) {
+      poly(c, [[-5, -2], [5, -2], [4, 24], [-4, 24]]);
+      inked(c, back ? SKIN_D : SKIN, 2.5);
+    } else {
+      poly(c, [[-7, -2], [7, -2], [6, 18], [-6, 18]]);
+      inked(c, back ? shade(fit.main, 0.88) : fit.main, 3);
+      poly(c, [[-5, 16], [5, 16], [5, 24], [-5, 24]]);
+      inked(c, back ? SKIN_D : SKIN, 2.5);
+    }
     blob(c, [[-9, 23], [13, 22], [17, 30], [15, 34], [-10, 34]]);
-    inked(c, back ? "#9c1f1c" : "#cf2c27", 3);
+    inked(c, back ? shade(shoe, 0.75) : shoe, 3);
     poly(c, [[-8, 31], [16, 31], [15, 34], [-9, 34]]);
     inked(c, "#f1ede4", 1.5);
     c.restore();
   };
-  leg(-5, stride * 0.7, true);
+  // girl's hair hangs behind everything
   c.save();
   c.rotate(lean);
-  // shorts
-  poly(c, [[-15, -46], [15, -46], [16, -30], [-16, -30]]);
-  inked(c, "#efebe2", 3);
-  c.fillStyle = "#cf2c27";
-  c.fillRect(-15, -36, 31, 3);
+  c.translate(0, -86 - breath * 3.4);
+  hairBack(c, look);
   c.restore();
-  leg(6, -stride * 0.7, false);
 
-  // torso breathes: it grows a touch from the waist up
+  leg(-5, stride * 0.75, true);
+  if (!girl) {
+    c.save();
+    c.rotate(lean);
+    poly(c, [[-15, -46], [15, -46], [16, -30], [-16, -30]]);
+    inked(c, fit.main, 3);
+    c.fillStyle = fit.trim;
+    c.fillRect(-15, -36, 31, 3);
+    c.restore();
+  }
+  leg(6, -stride * 0.75, false);
+
+  // torso breathes from the waist up
   c.save();
   c.rotate(lean);
   c.translate(0, -46);
   c.scale(1 + breath * 0.025, 1 + breath * 0.06);
   c.translate(0, 46);
-  // back arm swings opposite the front leg while walking
+  // back arm swings opposite the front leg
   c.save();
   c.translate(-8, -80);
-  c.rotate(moving ? -stride * 0.6 : 0.15 + breath * 0.06);
+  c.rotate(moving ? -stride * 0.8 : 0.15 + breath * 0.06);
   blob(c, [[-5, 0], [5, 0], [6, 26], [-4, 28]]);
   inked(c, SKIN_D, 3);
   c.restore();
-  blob(c, [[-18, -86], [15, -86], [20, -70], [18, -44], [-18, -44], [-21, -68]]);
-  inked(c, "#f4f1ea", 3.5);
-  // sleeves and collar trim
-  c.strokeStyle = "#cf2c27";
-  c.lineWidth = 3.5;
-  c.beginPath();
-  c.moveTo(-8, -86);
-  c.quadraticCurveTo(0, -78, 8, -86);
-  c.stroke();
-  // number 8, painted on rather than typed
-  c.font = `22px ${FONT}`;
-  c.textAlign = "center";
-  c.textBaseline = "middle";
-  c.lineWidth = 2.5;
-  c.strokeStyle = "#7a1612";
-  c.strokeText("8", 4, -64);
-  c.fillStyle = "#d8352f";
-  c.fillText("8", 4, -64);
-  // blood soaked into the jersey
+  if (girl) {
+    // a white dress that flares at the hem
+    blob(c, [[-14, -86], [12, -86], [16, -66], [26, -30], [-26, -30], [-17, -66]]);
+    inked(c, fit.main, 3.5);
+    c.strokeStyle = fit.trim;
+    c.lineWidth = 3;
+    c.beginPath();
+    c.moveTo(-24, -34);
+    c.lineTo(24, -34);
+    c.stroke();
+  } else {
+    blob(c, [[-18, -86], [15, -86], [20, -70], [18, -44], [-18, -44], [-21, -68]]);
+    inked(c, fit.main, 3.5);
+    c.strokeStyle = fit.trim;
+    c.lineWidth = 3.5;
+    c.beginPath();
+    c.moveTo(-8, -86);
+    c.quadraticCurveTo(0, -78, 8, -86);
+    c.stroke();
+    c.font = `${look.number > 9 ? 18 : 22}px ${FONT}`;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.lineWidth = 2.5;
+    c.strokeStyle = shade(fit.num, 0.55);
+    c.strokeText(String(look.number), 4, -64);
+    c.fillStyle = fit.num;
+    c.fillText(String(look.number), 4, -64);
+  }
   for (let i = 0; i < Math.min(blood, KID_SPLATS.length); i++) {
     const [x, y, r] = KID_SPLATS[i];
     if (y > -90) splat(c, x, y, r, i * 7.1);
   }
   c.restore();
 
-  // head: bobs with the walk, rises with each breath, snaps back when hit
+  // head
   c.save();
   c.rotate(lean);
   c.translate(0, -86 - breath * 3.4 + (moving ? Math.cos(walk * 2) * 1.2 : 0));
   c.rotate(hurt > 0 ? -0.18 : dead ? 0.3 : 0);
   ellipse(c, 2, -32, 34, 32);
   inked(c, SKIN, 3.5);
-  // short hair, faded at the sides
-  blob(c, [[-32, -36], [-28, -58], [-4, -66], [24, -60], [34, -42], [26, -50], [2, -54], [-22, -50]]);
-  inked(c, "#130e0c", 2.5);
-  ellipse(c, -14, -28, 6, 8);
-  inked(c, SKIN_D, 2.5);
-  // eyes: big whites, tiny pupils, heavy upper lids. They blink.
+  if (!girl) {
+    ellipse(c, -14, -28, 6, 8);
+    inked(c, SKIN_D, 2.5);
+  }
+  hairFront(c, look);
+  // eyes: big whites, pupils looking up, heavy lids. They blink.
   const blink = !dead && t % 3.9 < 0.11;
   if (blink || dead) {
     c.strokeStyle = INK;
     c.lineWidth = 3;
     c.beginPath();
-    if (dead) {
+    if (dead)
       for (const ex of [16, 30]) {
         c.moveTo(ex - 5, -38);
         c.lineTo(ex + 5, -28);
         c.moveTo(ex + 5, -38);
         c.lineTo(ex - 5, -28);
       }
-    } else {
+    else {
       c.moveTo(8, -32);
       c.lineTo(24, -32);
       c.moveTo(26, -31);
@@ -499,27 +600,35 @@ export function drawKid(c, o) {
     }
     c.stroke();
   } else {
-    ellipse(c, 16, -32, 9.5, 11);
+    ellipse(c, 16, -31, 9.5, 11);
     inked(c, "#ffffff", 2.5);
-    ellipse(c, 30, -31, 6.5, 10);
+    ellipse(c, 30, -30, 6.5, 10);
     inked(c, "#ffffff", 2.5);
     c.fillStyle = INK;
-    const look = hurt > 0 ? 2 : 0;
-    ellipse(c, 19 + look, -35, 2.4, 2.8);
+    const lx = hurt > 0 ? 2 : 0;
+    ellipse(c, 19 + lx, -37, 2.4, 2.8);
     fillPlain(c);
-    ellipse(c, 32 + look, -34, 2, 2.6);
+    ellipse(c, 32 + lx, -36, 2, 2.6);
     fillPlain(c);
-    // heavy lids
     c.beginPath();
     c.moveTo(6, -38);
     c.quadraticCurveTo(16, -45, 26, -39);
     c.moveTo(25, -38);
     c.quadraticCurveTo(31, -43, 37, -37);
-    c.lineWidth = 3.5;
+    c.lineWidth = girl ? 2.5 : 3.5;
     c.strokeStyle = INK;
     c.stroke();
+    if (girl) {
+      // lashes
+      c.beginPath();
+      c.moveTo(24, -41);
+      c.lineTo(28, -45);
+      c.moveTo(36, -38);
+      c.lineTo(40, -41);
+      c.lineWidth = 2;
+      c.stroke();
+    }
   }
-  // nose + mouth
   c.beginPath();
   c.moveTo(36, -24);
   c.quadraticCurveTo(40, -20, 35, -18);
@@ -537,9 +646,9 @@ export function drawKid(c, o) {
   // weapon arm
   c.save();
   c.rotate(lean);
-  c.translate(4, -72 - breath * 2.6);
-  const isSwing = swing > 0;
-  if (isSwing) {
+  c.translate(4, -76 - breath * 2.6);
+  const drawMeleeFor = (size) => (girl ? drawHammer(c, size * 0.95) : drawMelee(c, melee, size));
+  if (swing > 0) {
     // overhead, two-handed, with the motion smear of the video
     const swingT = 1 - swing / 0.22;
     const ease = 1 - (1 - swingT) * (1 - swingT);
@@ -554,12 +663,12 @@ export function drawKid(c, o) {
       c.globalAlpha *= alpha;
       c.rotate(a - lag + Math.PI / 2);
       setShade(false);
-      drawMelee(c, melee, 1.05);
+      drawMeleeFor(1.05);
       setShade(true);
       c.restore();
     }
     c.rotate(a + Math.PI / 2);
-    drawMelee(c, melee, 1.05);
+    drawMeleeFor(1.05);
     c.rotate(-(a + Math.PI / 2));
     c.rotate(a);
     blob(c, [[0, -6], [28, -6], [30, 6], [0, 6]]);
@@ -567,12 +676,18 @@ export function drawKid(c, o) {
     ellipse(c, 28, 0, 7, 7);
     inked(c, SKIN, 2.5);
   } else {
-    // gun held low at the hip, kicking up with each shot
-    c.rotate(-recoil * 0.28 + (moving ? Math.sin(walk) * 0.05 : 0));
-    blob(c, [[-2, -6], [18, 4], [24, 12], [14, 16], [-4, 6]]);
+    // shooting: the arm thrusts straight out at shoulder height, one-handed,
+    // and kicks up with each shot; otherwise the gun hangs low at the hip
+    const up = Math.min(1, aim / 0.2);
+    const swingArm = moving ? Math.sin(walk) * 0.05 * (1 - up) : 0;
+    c.rotate(-recoil * 0.3 + swingArm + (1 - up) * 0.55 - 0.05 * up);
+    blob(c, [[-2, -6], [34, -5], [36, 6], [-4, 6]]);
     inked(c, SKIN, 3);
+    ellipse(c, 36, 0, 6.5, 6.5);
+    inked(c, SKIN, 2.5);
     c.save();
-    c.translate(22, 12);
+    c.translate(36, 4);
+    c.rotate(-(1 - up) * 0.55);
     drawGun(c, gun, 1);
     if (muzzle > 0 && shooting) {
       const L = { pistol: 30, smg: 40, rifle: 62, shotgun: 58, launcher: 64, saw: 56, flame: 60, laser: 54 }[WEAPON[gun].family] - 18;
@@ -606,79 +721,110 @@ export const DINO_LOOK = {
 };
 
 // the head on its own, origin at the back of the skull where the neck joins.
-// The video's kill throws exactly this, whole, into the air.
+// Drawn after the game's icon: a blocky skull with white chips on the crown,
+// a horn on the snout, a slanted angry eye, a tan jaw with a few big fangs
+// and a long red tongue lolling out. The video's kill throws exactly this.
 export function drawDinoHead(c, type, jaw = 0.4, t = 0, severed = false) {
   const look = DINO_LOOK[type] || DINO_LOOK.raptor;
-  // lower jaw with the tongue and teeth
+  const skin = look.skull || look.body;
+  // lower jaw, tongue and lower fangs
   c.save();
-  c.translate(6, 8);
+  c.translate(8, 6);
   c.rotate(jaw);
-  blob(c, [[-4, -4], [56, 0], [62, 10], [50, 20], [4, 18]]);
-  inked(c, look.throat, 3);
-  poly(c, [[6, -2], [56, 1], [52, 9], [8, 10]]);
-  c.fillStyle = "#8e1820";
+  blob(c, [[-6, -4], [52, -2], [68, 6], [62, 18], [30, 22], [0, 16]]);
+  inked(c, look.throat, 3.5);
+  poly(c, [[2, -3], [64, 0], [58, 7], [4, 8]]);
+  c.fillStyle = "#7d1119";
   fillPlain(c);
-  blob(c, [[10, 4], [34, 0], [44, 5], [24, 9]]);
-  c.fillStyle = "#d9676b";
-  fillPlain(c);
-  for (let i = 0; i < 6; i++) {
-    poly(c, [[12 + i * 7.5, 1], [15 + i * 7.5, -6], [18 + i * 7.5, 1]]);
-    inked(c, "#fffdf3", 1.4);
+  for (const [x, h] of [
+    [18, 9],
+    [42, 11],
+    [58, 8],
+  ]) {
+    poly(c, [[x - 4, 1], [x, -h], [x + 4, 1]]);
+    inked(c, "#fffdf3", 1.8);
   }
+  // the tongue hangs out past the jaw
+  const flop = Math.sin(t * 6) * 3;
+  blob(c, [[14, 2], [44, 0], [70, 6], [86, 22 + flop], [80, 34 + flop], [70, 24 + flop], [50, 10], [20, 8]]);
+  inked(c, "#b8262f", 2.8);
+  c.strokeStyle = "#7d1119";
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(30, 5);
+  c.quadraticCurveTo(58, 8, 76, 24 + flop);
+  c.stroke();
   c.restore();
   // skull
-  blob(c, [[-12, -30], [20, -42], [56, -30], [72, -10], [70, 6], [8, 10], [-14, 0]]);
-  inked(c, look.skull || look.body, 3.5);
-  // inside of the mouth + upper teeth
-  poly(c, [[8, 6], [70, 4], [64, 12], [8, 12]]);
-  c.fillStyle = "#8e1820";
-  fillPlain(c);
-  for (let i = 0; i < 8; i++) {
-    poly(c, [[12 + i * 7, 5], [15 + i * 7, 13], [18 + i * 7, 5]]);
-    inked(c, "#fffdf3", 1.4);
-  }
-  if (!look.skull) {
-    // shark-fin stripes running back over the skull
-    for (let i = 0; i < 3; i++) {
-      poly(c, [[-6 + i * 12, -28 + i * 2], [2 + i * 12, -44 + i * 3], [6 + i * 12, -26 + i * 2]]);
-      inked(c, look.stripe, 1.8);
-    }
-  }
-  if (look.horns) {
-    poly(c, [[44, -30], [56, -56], [58, -28]]);
-    inked(c, "#f3ead6", 2.5);
-    poly(c, [[18, -38], [22, -58], [30, -38]]);
-    inked(c, "#f3ead6", 2.5);
-  }
-  if (look.skull) {
-    // brute: pale skull face, dark socket, tiny glint
-    ellipse(c, 26, -16, 13, 11);
-    inked(c, "#2a2224", 2.5);
-    c.fillStyle = "#ffffff";
-    ellipse(c, 30, -18, 3, 3);
-    fillPlain(c);
-    ellipse(c, 60, -8, 3.5, 3);
-    inked(c, "#2a2224", 1.5);
-  } else {
-    // the huge round eye with a pinprick pupil, and the brow that makes it angry
-    const eye = severed ? 15 : 13;
-    ellipse(c, 26, -18, eye, eye);
-    inked(c, "#ffffff", 3);
-    c.fillStyle = INK;
-    ellipse(c, severed ? 26 : 31, -18 + (severed ? 3 : 0), 2.6, 2.6);
-    fillPlain(c);
+  blob(c, [[-16, 2], [-12, -30], [6, -46], [34, -50], [58, -42], [78, -30], [88, -14], [84, 2], [12, 8]]);
+  inked(c, skin, 4);
+  // brushy shading under the cheek
+  c.strokeStyle = look.dark || "rgba(0,0,0,.3)";
+  c.lineCap = "round";
+  for (let i = 0; i < 5; i++) {
+    c.lineWidth = 3 - i * 0.3;
     c.beginPath();
-    c.moveTo(10, -36);
-    c.quadraticCurveTo(28, -30, 44, -22);
-    c.lineWidth = 5;
-    c.strokeStyle = INK;
-    c.lineCap = "round";
+    c.moveTo(-6 + i * 14, -4 - (i % 2) * 4);
+    c.quadraticCurveTo(2 + i * 14, -10, 8 + i * 14, -2);
     c.stroke();
   }
-  if (severed) {
-    // the raw end of the neck
-    drawMeat(c, -12, -6, 16);
+  // inside of the mouth + upper fangs
+  poly(c, [[10, 4], [84, 0], [78, 9], [12, 10]]);
+  c.fillStyle = "#7d1119";
+  fillPlain(c);
+  for (const [x, h] of [
+    [24, 13],
+    [46, 15],
+    [70, 11],
+  ]) {
+    poly(c, [[x - 5, 3], [x, 3 + h], [x + 5, 3]]);
+    inked(c, "#fffdf3", 1.8);
   }
+  if (!look.skull) {
+    // white chips on the crown, and the horns
+    for (const pts of [
+      [[2, -40], [16, -48], [20, -38], [8, -34]],
+      [[28, -48], [44, -48], [40, -38], [30, -40]],
+      [[52, -42], [62, -38], [56, -32]],
+    ]) {
+      poly(c, pts);
+      inked(c, look.stripe, 1.6);
+    }
+    poly(c, [[-8, -30], [-24, -50], [-2, -38]]);
+    inked(c, "#f6f3ea", 2.5);
+    poly(c, [[66, -36], [78, -62], [80, -30]]);
+    inked(c, "#f6f3ea", 2.5);
+  }
+  if (look.horns) {
+    poly(c, [[40, -46], [50, -74], [56, -44]]);
+    inked(c, "#f3ead6", 2.5);
+  }
+  // nostril
+  ellipse(c, 80, -16, 3.5, 2.5, 0.4);
+  c.fillStyle = INK;
+  fillPlain(c);
+  if (look.skull) {
+    // brute: pale skull face, dark socket, tiny glint
+    ellipse(c, 30, -20, 14, 12);
+    inked(c, "#2a2224", 2.5);
+    c.fillStyle = "#ffffff";
+    ellipse(c, 34, -22, 3, 3);
+    fillPlain(c);
+  } else {
+    // the slanted, angry eye
+    poly(c, [[18, -30], [42, -36], [52, -24], [28, -18]]);
+    inked(c, "#ffffff", 3);
+    c.fillStyle = INK;
+    ellipse(c, severed ? 32 : 40, -27 + (severed ? 3 : 0), 2.4, 2.4);
+    fillPlain(c);
+    c.beginPath();
+    c.moveTo(12, -40);
+    c.lineTo(54, -30);
+    c.lineWidth = 6;
+    c.strokeStyle = INK;
+    c.stroke();
+  }
+  if (severed) drawMeat(c, -14, -10, 17);
 }
 
 // raw meat: red flesh with darker pits and white flecks (the neck stump in the video)
@@ -969,7 +1115,7 @@ export function drawSpray(c, sp) {
   for (let i = 0; i < sp.n; i++) {
     const r1 = hash(sp.seed + i, 1.3),
       r2 = hash(sp.seed, i * 2.1);
-    const a = (r1 - 0.62) * 1.4;
+    const a = sp.radial ? (r1 - 0.5) * 3.0 - 0.35 : (r1 - 0.62) * 1.4;
     const len = (30 + r2 * 70) * sp.big * (0.4 + t * 0.9);
     const dx = Math.cos(a) * len * sp.dir,
       dy = Math.sin(a) * len;

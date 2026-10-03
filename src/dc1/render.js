@@ -366,6 +366,197 @@ function paintFerns(w, seed) {
   return cv;
 }
 
+// ------------------------------------------------------------ the other maps
+const MAP_SKY = {
+  jungle: null,
+  wasteland: ["#e3874a", "#f1b46d", "#f7d69a"],
+  cherry: ["#e9c3d6", "#f6dbe4", "#fcefe8"],
+  cavern: ["#120f19", "#1d1826", "#2a2434"],
+};
+function paintMapLayer(map, layer, w, h) {
+  const cv = offscreen(w, h),
+    c = cv.getContext("2d"),
+    r = rng(map.length * 977 + layer * 31);
+  if (map === "wasteland") {
+    if (layer === 0) {
+      // mesas on the horizon
+      c.fillStyle = "#c9794a";
+      let x = -40;
+      while (x < w) {
+        const mw = 160 + r() * 260,
+          mh = 60 + r() * 120;
+        poly(c, [[x, h], [x + 30, h - mh], [x + mw - 40, h - mh - r() * 10], [x + mw, h]]);
+        fillPlain(c);
+        x += mw + r() * 120;
+      }
+    } else {
+      // a broken highway and the bones of buildings
+      c.fillStyle = "#94603f";
+      for (let x = 60; x < w; x += 420 + r() * 200) {
+        c.fillRect(x, h - 150, 26, 150);
+        c.fillRect(x + 180, h - 150, 26, 150);
+        poly(c, [[x - 40, h - 160], [x + 260 - r() * 60, h - 168], [x + 240, h - 150], [x - 40, h - 146]]);
+        fillPlain(c);
+      }
+      for (let i = 0; i < 4; i++) {
+        const x = r() * w,
+          bh = 90 + r() * 90;
+        poly(c, [[x, h], [x, h - bh], [x + 30, h - bh - 20], [x + 50, h - bh + 10], [x + 90, h - bh], [x + 90, h]]);
+        c.fillStyle = "#7d4f35";
+        fillPlain(c);
+      }
+      // dead trees
+      c.strokeStyle = "#5b3b28";
+      c.lineCap = "round";
+      for (let i = 0; i < 5; i++) {
+        const x = r() * w;
+        c.lineWidth = 7;
+        c.beginPath();
+        c.moveTo(x, h);
+        c.lineTo(x + 6, h - 90);
+        c.lineTo(x - 24, h - 130);
+        c.moveTo(x + 4, h - 70);
+        c.lineTo(x + 34, h - 112);
+        c.stroke();
+      }
+    }
+  } else if (map === "cherry") {
+    if (layer === 0) {
+      c.fillStyle = "#d6bccf";
+      c.beginPath();
+      c.moveTo(0, h);
+      for (let x = 0; x <= w; x += 40) c.lineTo(x, h - 60 - Math.abs(Math.sin(x * 0.004 + 1)) * 150 - r() * 12);
+      c.lineTo(w, h);
+      c.fill();
+      // a pagoda on the ridge
+      const px = w * 0.6;
+      c.fillStyle = "#b99db4";
+      for (let i = 0; i < 4; i++) {
+        poly(c, [[px - 60 + i * 10, h - 120 - i * 34], [px + 60 - i * 10, h - 120 - i * 34], [px + 40 - i * 10, h - 136 - i * 34], [px - 40 + i * 10, h - 136 - i * 34]]);
+        fillPlain(c);
+        c.fillRect(px - 26 + i * 6, h - 120 - i * 34, 52 - i * 12, 34);
+      }
+    } else {
+      // village houses with curved roofs, and blossom trees between them
+      for (let x = 0; x < w; x += 360) {
+        const hx = x + 40;
+        poly(c, [[hx, h - 130], [hx + 220, h - 130], [hx + 220, h], [hx, h]]);
+        inked(c, "#9a6a45", 3.5);
+        c.strokeStyle = "#5a3a26";
+        c.lineWidth = 3;
+        for (let k = 1; k < 4; k++) {
+          c.beginPath();
+          c.moveTo(hx + k * 55, h - 130);
+          c.lineTo(hx + k * 55, h);
+          c.stroke();
+        }
+        poly(c, [[hx + 60, h - 100], [hx + 160, h - 100], [hx + 160, h - 40], [hx + 60, h - 40]]);
+        inked(c, "#f2e2b8", 3);
+        blob(c, [[hx - 34, h - 122], [hx + 30, h - 168], [hx + 190, h - 168], [hx + 254, h - 122], [hx + 110, h - 138]]);
+        inked(c, "#3a4458", 4);
+        // a red lantern
+        ellipse(c, hx + 30, h - 104, 10, 13);
+        inked(c, "#d8362f", 2.5);
+        // blossom tree
+        const tx = x + 310;
+        c.strokeStyle = INK;
+        c.lineWidth = 12;
+        c.lineCap = "round";
+        c.beginPath();
+        c.moveTo(tx, h);
+        c.quadraticCurveTo(tx - 10, h - 90, tx + 20, h - 170);
+        c.stroke();
+        c.strokeStyle = "#5a3a2e";
+        c.lineWidth = 7;
+        c.stroke();
+        for (let k = 0; k < 7; k++) {
+          const bx = tx + 20 + (r() - 0.5) * 150,
+            by = h - 190 + (r() - 0.5) * 80,
+            br = 30 + r() * 26;
+          ellipse(c, bx, by, br, br * 0.8);
+          inked(c, k % 2 ? "#f4a6c2" : "#f8c6d8", 3);
+        }
+      }
+    }
+  } else if (map === "cavern") {
+    if (layer === 0) {
+      // the far wall, stalactites and glowing crystals
+      c.fillStyle = "#26202f";
+      c.fillRect(0, 0, w, h);
+      c.fillStyle = "#1a1621";
+      for (let x = 0; x < w; x += 40 + r() * 60) {
+        const L = 40 + r() * 140;
+        poly(c, [[x, 0], [x + 26 + r() * 20, 0], [x + 14, L]]);
+        fillPlain(c);
+      }
+      for (let i = 0; i < 10; i++) {
+        const x = r() * w,
+          y = h * (0.35 + r() * 0.5),
+          col = r() < 0.5 ? "120,230,255" : "200,130,255";
+        const g = c.createRadialGradient(x, y, 2, x, y, 70);
+        g.addColorStop(0, `rgba(${col},0.45)`);
+        g.addColorStop(1, `rgba(${col},0)`);
+        c.fillStyle = g;
+        c.fillRect(x - 70, y - 70, 140, 140);
+        for (let k = 0; k < 3; k++) {
+          poly(c, [[x - 8 + k * 9, y + 10], [x - 4 + k * 9, y - 22 - r() * 16], [x + 2 + k * 9, y + 10]]);
+          inked(c, `rgb(${col})`, 2);
+        }
+      }
+    } else {
+      // stalagmite pillars
+      for (let x = 30; x < w; x += 260 + r() * 180) {
+        const ph = 160 + r() * 140;
+        blob(c, [[x - 40, h], [x - 22, h - ph * 0.6], [x - 6, h - ph], [x + 10, h - ph * 0.7], [x + 34, h]]);
+        inked(c, "#3a3245", 3.5);
+      }
+    }
+  }
+  return cv;
+}
+function paintMapFront(map, w) {
+  const cv = offscreen(w, 160),
+    c = cv.getContext("2d"),
+    r = rng(map.length * 131 + 7);
+  const H = 160;
+  for (let i = 0; i < 12; i++) {
+    const x = r() * w;
+    if (map === "wasteland") {
+      if (i % 4 === 0) {
+        // a cactus
+        blob(c, [[x - 10, H], [x - 10, H - 90], [x, H - 100], [x + 10, H - 90], [x + 10, H]]);
+        inked(c, "#5f8a4a", 3);
+        blob(c, [[x + 8, H - 50], [x + 26, H - 54], [x + 28, H - 80], [x + 20, H - 80], [x + 18, H - 62], [x + 8, H - 60]]);
+        inked(c, "#5f8a4a", 2.5);
+      } else if (i % 4 === 1) {
+        // a rusted car shell
+        blob(c, [[x - 70, H - 10], [x - 66, H - 40], [x - 30, H - 46], [x - 10, H - 70], [x + 40, H - 70], [x + 60, H - 44], [x + 76, H - 38], [x + 76, H - 10]]);
+        inked(c, "#9c5634", 3.5);
+        for (const wx of [x - 40, x + 44]) {
+          ellipse(c, wx, H - 10, 16, 16);
+          inked(c, "#2b2420", 3);
+        }
+      } else {
+        blob(c, [[x - 30, H], [x - 22, H - 26], [x + 6, H - 34], [x + 30, H - 14], [x + 34, H]]);
+        inked(c, "#a87650", 3);
+      }
+    } else if (map === "cherry") {
+      blob(c, [[x - 50, H], [x - 40, H - 46], [x - 6, H - 70], [x + 34, H - 50], [x + 54, H]]);
+      inked(c, i % 3 ? "#5f8c58" : "#f0a3c0", 3);
+    } else {
+      // cavern: rocks and crystal clusters
+      blob(c, [[x - 46, H], [x - 30, H - 40], [x + 8, H - 52], [x + 40, H - 24], [x + 50, H]]);
+      inked(c, "#2e2838", 3.5);
+      if (i % 3 === 0)
+        for (let k = 0; k < 3; k++) {
+          poly(c, [[x - 10 + k * 10, H - 30], [x - 5 + k * 10, H - 70 - k * 8], [x + 2 + k * 10, H - 30]]);
+          inked(c, k % 2 ? "#7ee6ff" : "#c98bff", 2);
+        }
+    }
+  }
+  return cv;
+}
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -429,7 +620,8 @@ export class Renderer {
       cam = this.camera(world, dt),
       city = world.mode === "city";
     if (city) this.drawCityBack(world, cam);
-    else this.drawJungleBack(cam);
+    else if (world.map === "jungle") this.drawJungleBack(cam);
+    else this.drawMapBack(world.map, cam);
 
     // ground decals: blood pools, chunks, eyes, heads. They stay all level.
     for (const d of world.decals) {
@@ -537,6 +729,8 @@ export class Renderer {
       recoil: p.recoil,
       blood: p.blood,
       hurt: p.hurt,
+      aim: p.aim,
+      look: world.profile.look,
     };
     if (world.status === "dead") {
       c.rotate(-p.facing * 1.35);
@@ -554,7 +748,8 @@ export class Renderer {
 
     this.drawEffects(world, cam);
     if (city) this.drawStreetFront(world, cam);
-    else this.tile(c, this.cached("ferns", () => paintFerns(1400, 5)), cam * 1.25, this.H - 120);
+    else if (world.map === "jungle") this.tile(c, this.cached("ferns", () => paintFerns(1400, 5)), cam * 1.25, this.H - 120);
+    else this.drawMapFront(world.map, cam);
     this.drawPopups(world.popups, cam, GROUND_Y - 170);
   }
 
@@ -776,6 +971,133 @@ export class Renderer {
     inked(c, "#b8433a", 3);
     poly(c, [[-16, -26], [16, -26], [16, -20], [-16, -20]]);
     inked(c, "#9d3830", 2.5);
+    c.restore();
+  }
+
+  drawMapBack(map, cam) {
+    const c = this.c,
+      W = this.W,
+      H = this.H;
+    const [a, b, d] = MAP_SKY[map];
+    const g = c.createLinearGradient(0, 0, 0, SIDEWALK_TOP);
+    g.addColorStop(0, a);
+    g.addColorStop(0.6, b);
+    g.addColorStop(1, d);
+    c.fillStyle = g;
+    c.fillRect(0, 0, W, SIDEWALK_TOP);
+    if (map === "wasteland") {
+      // a big low sun with a haze around it
+      const sx = W * 0.7 - cam * 0.05;
+      const sg = c.createRadialGradient(sx, 150, 20, sx, 150, 200);
+      sg.addColorStop(0, "rgba(255,244,200,0.9)");
+      sg.addColorStop(0.25, "rgba(255,226,160,0.5)");
+      sg.addColorStop(1, "rgba(255,200,120,0)");
+      c.fillStyle = sg;
+      c.fillRect(sx - 200, -50, 400, 400);
+      ellipse(c, sx, 150, 46, 46);
+      c.fillStyle = "#fff3cf";
+      fillPlain(c);
+    }
+    this.tile(c, this.cached(`map0:${map}`, () => paintMapLayer(map, 0, 1600, map === "cavern" ? SIDEWALK_TOP : 300)), cam * 0.25, map === "cavern" ? 0 : SIDEWALK_TOP - 300);
+    this.tile(c, this.cached(`map1:${map}`, () => paintMapLayer(map, 1, 1500, 260)), cam * 0.55, SIDEWALK_TOP - 258);
+    // the ground
+    const ground = { wasteland: ["#c99a68", "#b5835a", "#9c7046"], cherry: ["#bfb19b", "#8fb07a", "#9d8f7a"], cavern: ["#4a4252", "#5d5468", "#3a3341"] }[map];
+    c.fillStyle = ground[0];
+    c.fillRect(0, SIDEWALK_TOP, W, H - SIDEWALK_TOP);
+    c.fillStyle = ground[1];
+    c.fillRect(0, SIDEWALK_TOP, W, 10);
+    c.fillStyle = INK;
+    c.fillRect(0, SIDEWALK_TOP + 10, W, 2.5);
+    c.strokeStyle = ground[2];
+    c.lineWidth = 2;
+    for (let i = Math.floor(cam / 110) - 1; i < (cam + W) / 110 + 1; i++) {
+      const rr = rng(i * 4517 + map.length),
+        x = i * 110 - cam;
+      c.beginPath();
+      if (map === "cherry") {
+        // flagstones
+        c.moveTo(x, SIDEWALK_TOP + 12);
+        c.lineTo(x - 18, H);
+      } else {
+        // cracks
+        let cx = x + rr() * 60,
+          cy = SIDEWALK_TOP + 14 + rr() * 30;
+        c.moveTo(cx, cy);
+        for (let k = 0; k < 4; k++) c.lineTo((cx += (rr() - 0.5) * 40), (cy += 8 + rr() * 10));
+      }
+      c.stroke();
+      if (map === "cavern" && rr() < 0.3) {
+        ellipse(c, x + 50, SIDEWALK_TOP + 60 + rr() * 30, 40, 6);
+        c.fillStyle = "rgba(126,230,255,0.18)";
+        fillPlain(c);
+      }
+    }
+  }
+
+  drawMapFront(map, cam) {
+    const c = this.c;
+    this.tile(c, this.cached(`mapF:${map}`, () => paintMapFront(map, 1500)), cam * 1.25, this.H - 150);
+    // moving air: petals, dust or drips
+    const n = map === "cherry" ? 26 : map === "wasteland" ? 14 : 12;
+    for (let i = 0; i < n; i++) {
+      const rr = rng(i * 7 + 3);
+      const speed = 30 + rr() * 50;
+      const x = (((rr() * 2000 - cam * 0.9 + this.t * (map === "cavern" ? 0 : map === "cherry" ? -40 : 90)) % (this.W + 80)) + this.W + 80) % (this.W + 80) - 40;
+      const y = map === "cavern" ? ((rr() * 600 + this.t * 260) % 560) : ((rr() * 600 + this.t * speed) % (this.H + 40)) - 20;
+      c.save();
+      c.translate(x, y);
+      if (map === "cherry") {
+        c.rotate(this.t * 2 + i);
+        ellipse(c, 0, 0, 5, 3);
+        c.fillStyle = "#f7b7cf";
+        fillPlain(c);
+      } else if (map === "wasteland") {
+        ellipse(c, 0, 0, 2.5, 1.5);
+        c.fillStyle = "rgba(240,210,160,0.7)";
+        fillPlain(c);
+      } else {
+        ellipse(c, 0, 0, 1.8, 4);
+        c.fillStyle = "rgba(160,220,255,0.7)";
+        fillPlain(c);
+      }
+      c.restore();
+    }
+  }
+
+  // small previews for the menus
+  drawMapPreview(map) {
+    const c = this.c;
+    c.setTransform(this.k * this.dpr, 0, 0, this.k * this.dpr, 0, 0);
+    if (map === "jungle") {
+      this.drawJungleBack(0);
+      this.tile(c, this.cached("ferns", () => paintFerns(1400, 5)), 0, this.H - 120);
+    } else {
+      this.drawMapBack(map, 0);
+      this.drawMapFront(map, 0);
+    }
+  }
+  drawCharacterPreview(look, t) {
+    const c = this.c,
+      W = this.W,
+      H = this.H;
+    this.t = t;
+    c.setTransform(this.k * this.dpr, 0, 0, this.k * this.dpr, 0, 0);
+    const g = c.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, "#8e9bab");
+    g.addColorStop(1, "#c2c6c4");
+    c.fillStyle = g;
+    c.fillRect(0, 0, W, H);
+    c.fillStyle = "#aca592";
+    c.fillRect(0, H * 0.82, W, H * 0.18);
+    c.fillStyle = INK;
+    c.fillRect(0, H * 0.82, W, 3);
+    c.save();
+    c.translate(W / 2 - 20, H * 0.84);
+    c.scale(2.6, 2.6);
+    ellipse(c, 0, 4, 30, 7);
+    c.fillStyle = "rgba(0,0,0,.2)";
+    fillPlain(c);
+    drawKid(c, { look, t, facing: 1, gun: "usp", melee: "club", aim: Math.sin(t * 0.7) > 0.6 ? 0.5 : 0 });
     c.restore();
   }
 
@@ -1020,7 +1342,7 @@ export class Renderer {
     ellipse(c, 0, 4, 30, 7);
     c.fillStyle = "rgba(0,0,0,.2)";
     fillPlain(c);
-    drawKid(c, { facing: p.facing, walk: p.walk, moving: p.moving, gun: world.inv.gun, melee: world.inv.melee, t: this.t, blood: p.blood });
+    drawKid(c, { facing: p.facing, walk: p.walk, moving: p.moving, gun: world.inv.gun, melee: world.inv.melee, t: this.t, blood: p.blood, look: world.profile.look });
     c.restore();
     // what the buttons do here
     const it = s.selected;

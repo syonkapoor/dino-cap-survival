@@ -3,7 +3,7 @@ import { List, Trophy, HelpCircle, Settings as Gear, X } from "lucide-react";
 import { World } from "./engine.js";
 import { Renderer } from "./render.js";
 import { Sound } from "./audio.js";
-import { baseProfile, loadProfile, normalizeProfile, saveProfile, WEAPONS } from "./data.js";
+import { baseProfile, loadProfile, normalizeProfile, saveProfile, WEAPONS, MAPS, BLITZ_MAPS, CHARACTERS, SKINS, OUTFITS, SHOES, BOWS } from "./data.js";
 import "./dc1.css";
 
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -80,6 +80,121 @@ function Logo() {
       </svg>
       <span>CAP</span>
     </h1>
+  );
+}
+
+// a live thumbnail of a battleground, painted by the game's own renderer
+function MapCard({ id, onPick, last }) {
+  const cv = useRef(null);
+  useEffect(() => {
+    const el = cv.current;
+    const r = new Renderer(el);
+    // keep the picture's aspect at the widest view so it fills the card
+    const w = el.parentElement.clientWidth || 300,
+      h = Math.round((w * 540) / 1300);
+    r.resize(w, h, window.devicePixelRatio || 1);
+    el.style.width = `${w}px`;
+    el.style.height = `${h}px`;
+    r.drawMapPreview(id);
+  }, [id]);
+  return (
+    <button className={`dc-map ${last ? "last" : ""}`} onClick={() => onPick(id)}>
+      <canvas ref={cv} aria-hidden="true" />
+      <b>{MAPS[id].name}</b>
+      <span>{MAPS[id].blurb}</span>
+    </button>
+  );
+}
+
+function Swatches({ label, colors, value, onChange }) {
+  return (
+    <div className="dc-opt">
+      <span>{label}</span>
+      <div className="dc-swatches">
+        {colors.map((col, i) => (
+          <button key={i} className={i === value ? "on" : ""} style={{ background: col }} aria-label={`${label} ${i + 1}`} aria-pressed={i === value} onClick={() => onChange(i)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+function Choices({ label, items, value, onChange }) {
+  return (
+    <div className="dc-opt">
+      <span>{label}</span>
+      <div className="dc-choices">
+        {items.map((name, i) => (
+          <button key={name} className={i === value ? "on" : ""} aria-pressed={i === value} onClick={() => onChange(i)}>
+            {name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// the character creator: a breathing preview and every option beside it
+function Creator({ look, onChange, onDone }) {
+  const cv = useRef(null),
+    lookRef = useRef(look);
+  lookRef.current = look;
+  useEffect(() => {
+    const el = cv.current;
+    const r = new Renderer(el);
+    const fit = () => {
+      const W = r.resize(el.parentElement.clientWidth, el.parentElement.clientHeight, window.devicePixelRatio || 1);
+      el.style.width = `${Math.round(W * (el.parentElement.clientHeight / 540))}px`;
+      el.style.height = `${el.parentElement.clientHeight}px`;
+    };
+    fit();
+    let raf;
+    const t0 = performance.now();
+    const loop = (now) => {
+      r.drawCharacterPreview(lookRef.current, (now - t0) / 1000);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    window.addEventListener("resize", fit);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", fit);
+    };
+  }, []);
+  const set = (k, v) => onChange({ ...look, [k]: v });
+  const girl = look.char === "girl";
+  return (
+    <section className="dc-creator" role="dialog" aria-label="Character">
+      <div className="dc-creator-preview">
+        <canvas ref={cv} aria-label="Character preview" />
+      </div>
+      <div className="dc-creator-opts">
+        <h2>CHARACTER</h2>
+        <Choices label="WHO" items={Object.values(CHARACTERS).map((c) => c.name)} value={girl ? 1 : 0} onChange={(i) => onChange({ ...look, char: i ? "girl" : "kid", hair: 0 })} />
+        <Choices label="HAIR" items={CHARACTERS[look.char].hairs} value={look.hair} onChange={(i) => set("hair", i)} />
+        <Swatches label="SKIN" colors={SKINS} value={look.skin} onChange={(i) => set("skin", i)} />
+        <Swatches label={girl ? "DRESS" : "JERSEY"} colors={OUTFITS.map((o) => o.main)} value={look.outfit} onChange={(i) => set("outfit", i)} />
+        {girl ? (
+          <Swatches label="BOW" colors={BOWS} value={look.bow} onChange={(i) => set("bow", i)} />
+        ) : (
+          <div className="dc-opt">
+            <span>NUMBER</span>
+            <div className="dc-number">
+              <button aria-label="Number down" onClick={() => set("number", (look.number + 99) % 100)}>
+                −
+              </button>
+              <b>{look.number}</b>
+              <button aria-label="Number up" onClick={() => set("number", (look.number + 1) % 100)}>
+                +
+              </button>
+            </div>
+          </div>
+        )}
+        <Swatches label="SHOES" colors={SHOES} value={look.shoes} onChange={(i) => set("shoes", i)} />
+        <button className="dc-creator-done" onClick={onDone}>
+          DONE
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -278,12 +393,13 @@ export default function App() {
     if (!profile.music || screen !== "playing") sound.current.stopMusic();
     else sound.current.startMusic();
     if (!profile.fx || screen !== "playing") sound.current.stopAmbience();
-    else if (world.current && !sound.current.ambience) sound.current.startAmbience(world.current.mode);
+    else if (world.current && !sound.current.ambience) sound.current.startAmbience(world.current.map === "city" ? "city" : "jungle");
   }, [profile.fx, profile.music, screen]);
 
-  const begin = (mode) => {
+  const begin = (mode, map) => {
     sound.current.ensure();
-    const w = new World({ mode, profile: live.current, seed: (Math.random() * 2 ** 31) | 0, viewW: renderer.current.W });
+    if (map) live.current.map = map;
+    const w = new World({ mode, profile: live.current, seed: (Math.random() * 2 ** 31) | 0, viewW: renderer.current.W, map: map || live.current.map });
     world.current = w;
     input.current = w.input;
     renderer.current.cam = 0;
@@ -291,7 +407,7 @@ export default function App() {
     setConfirmNew(false);
     setScreen("playing");
     sound.current.stopAmbience();
-    if (live.current.fx) sound.current.startAmbience(mode);
+    if (live.current.fx) sound.current.startAmbience(w.map === "city" ? "city" : "jungle");
     if (live.current.music) sound.current.startMusic();
   };
   const newCity = () => {
@@ -318,6 +434,10 @@ export default function App() {
     sound.current.stopMusic();
     sound.current.stopAmbience();
     setScreen("title");
+  };
+  const setLook = (look) => {
+    live.current.look = look;
+    persist();
   };
   const setSetting = (k, v) => {
     live.current[k] = v;
@@ -349,10 +469,13 @@ export default function App() {
             <>
               <Logo />
               <nav className="dc-menu" aria-label="Main menu">
-                <button onClick={() => begin("blitz")}>JUNGLE BLITZ</button>
+                <button onClick={() => setScreen("maps")}>JUNGLE BLITZ</button>
                 <button onClick={newCity}>CITY GRIND</button>
                 <button onClick={() => begin("city")} disabled={!canResume}>
                   RESUME
+                </button>
+                <button className="dc-menu-small" onClick={() => setScreen("character")}>
+                  CHARACTER
                 </button>
                 {confirmNew && (
                   <div className="dc-confirm" role="alert">
@@ -477,6 +600,23 @@ export default function App() {
           )}
         </section>
       )}
+
+      {screen === "maps" && (
+        <section className="dc-title dc-maps" role="dialog" aria-label="Choose a map">
+          <Skyline />
+          <h2>CHOOSE YOUR BATTLEGROUND</h2>
+          <div className="dc-map-grid">
+            {BLITZ_MAPS.map((id) => (
+              <MapCard key={id} id={id} last={profile.map === id} onPick={(m) => begin("blitz", m)} />
+            ))}
+          </div>
+          <button className="dc-back-link" onClick={() => setScreen("title")}>
+            BACK
+          </button>
+        </section>
+      )}
+
+      {screen === "character" && <Creator look={profile.look} onChange={setLook} onDone={() => setScreen("title")} />}
 
       {screen === "playing" && (
         <div className="dc-controls">

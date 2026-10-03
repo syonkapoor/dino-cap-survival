@@ -84,6 +84,45 @@ export const BUILDINGS = {
 
 export const levelDuration = (level) => Math.min(120, 55 + level * 5);
 
+// Battlegrounds. City Grind is always the city street; Jungle Blitz can be
+// fought on any of the outdoor maps.
+export const MAPS = {
+  jungle: { name: "JUNGLE", blurb: "Twisted vines, night bugs, nowhere to hide." },
+  wasteland: { name: "WASTELAND", blurb: "A dead desert town under a burning sky." },
+  cherry: { name: "CHERRY VILLAGE", blurb: "Blossoms falling on a quiet mountain village." },
+  cavern: { name: "CAVERN", blurb: "Glowing crystals deep under the city." },
+};
+export const BLITZ_MAPS = Object.keys(MAPS);
+
+// The character creator.
+export const CHARACTERS = {
+  kid: { name: "KID", hairs: ["FLAT TOP", "AFRO", "BUZZ", "MOHAWK"] },
+  girl: { name: "WARRIOR GIRL", hairs: ["LONG", "BOB", "PONYTAIL"] },
+};
+export const SKINS = ["#4f2f1d", "#6e4429", "#a8724b", "#e2b690"];
+export const OUTFITS = [
+  { name: "HOME", main: "#f4f1ea", trim: "#cf2c27", num: "#d8352f" },
+  { name: "AWAY", main: "#c8302b", trim: "#f4f1ea", num: "#f4f1ea" },
+  { name: "MIDNIGHT", main: "#27324a", trim: "#f2c84b", num: "#f2c84b" },
+  { name: "JUNGLE", main: "#2f7a46", trim: "#f4f1ea", num: "#f4f1ea" },
+  { name: "GOLD", main: "#f2c84b", trim: "#1d1b22", num: "#1d1b22" },
+];
+export const SHOES = ["#cf2c27", "#f4f1ea", "#1d1b22", "#3c78d8", "#f2c84b"];
+export const BOWS = ["#ffffff", "#e0322b", "#f28ab8", "#3c78d8"];
+export const baseLook = () => ({ char: "kid", skin: 0, hair: 0, outfit: 0, number: 8, shoes: 0, bow: 0 });
+export function normalizeLook(raw) {
+  const l = { ...baseLook(), ...(raw && typeof raw === "object" ? raw : {}) };
+  if (!CHARACTERS[l.char]) l.char = "kid";
+  const idx = (v, n) => (Number.isInteger(v) && v >= 0 && v < n ? v : 0);
+  l.skin = idx(l.skin, SKINS.length);
+  l.hair = idx(l.hair, CHARACTERS[l.char].hairs.length);
+  l.outfit = idx(l.outfit, OUTFITS.length);
+  l.shoes = idx(l.shoes, SHOES.length);
+  l.bow = idx(l.bow, BOWS.length);
+  l.number = Number.isInteger(l.number) && l.number >= 0 && l.number <= 99 ? l.number : 8;
+  return l;
+}
+
 export function baseProfile() {
   return {
     version: SAVE_VERSION,
@@ -96,6 +135,8 @@ export function baseProfile() {
     runs: [],
     fx: true,
     music: true,
+    look: baseLook(),
+    map: "jungle",
   };
 }
 
@@ -115,6 +156,8 @@ export function normalizeProfile(raw) {
   p.cash = Math.max(0, Math.floor(Number(p.cash) || 0));
   p.level = Math.max(1, Math.floor(Number(p.level) || 1));
   p.runs = Array.isArray(p.runs) ? p.runs.slice(0, 10) : [];
+  p.look = normalizeLook(raw.look);
+  if (!MAPS[p.map]) p.map = "jungle";
   return p;
 }
 

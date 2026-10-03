@@ -20,7 +20,8 @@ The earlier Dino Cap 2-style build is kept unchanged at `?sequel`.
 - **CITY GRIND:** numbered night-time street levels that go on forever. Each opens with a LEVEL card
   and ends with LEVEL CLEAR! once the clock runs out and the street is quiet. Loot lit doorways for
   cash, ammo and medicine. Walk into **AMMO-COUNTRY** to buy, upgrade and reload.
-- **JUNGLE BLITZ:** endless survival. Weapon crates, ammo and medicine fall from the sky.
+- **JUNGLE BLITZ:** endless survival on your choice of four maps (Jungle, Wasteland, Cherry Village, Cavern). Weapon crates, ammo and medicine fall from the sky.
+- **CHARACTER:** play the Kid or the Warrior Girl and pick hair, skin, outfit colour, jersey number, bow and shoes.
 - **RESUME** continues your City Grind save.
 
 The dinosaurs (blue raptors, tan horned raptors, green brutes) only **bite**. They lunge, latch on

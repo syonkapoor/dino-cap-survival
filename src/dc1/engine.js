@@ -13,6 +13,7 @@ import {
   damageFor,
   upgradePrice,
   levelDuration,
+  MAPS,
 } from "./data.js";
 
 export const PLAYER_SPEED = 215;
@@ -74,8 +75,10 @@ export function makeStreet(level, rand, length = 14000) {
 }
 
 export class World {
-  constructor({ mode = "city", profile, seed = 1, viewW = 960 } = {}) {
+  constructor({ mode = "city", profile, seed = 1, viewW = 960, map } = {}) {
     this.mode = mode;
+    // City Grind is always the city; Jungle Blitz is fought on the chosen map
+    this.map = mode === "city" ? "city" : MAPS[map] ? map : "jungle";
     this.profile = profile;
     this.rand = mulberry32(seed);
     this.viewW = viewW;
@@ -117,6 +120,7 @@ export class World {
       leaveTimer: 0,
       blood: 0,
       recoil: 0,
+      aim: 0,
     };
     if (mode === "blitz") {
       // Jungle Blitz: its own loadout, weapons and ammo fall from the sky.
@@ -308,6 +312,7 @@ export class World {
       if (Math.floor(p.walk / Math.PI) !== before) this.emit("step");
     }
     p.recoil = Math.max(0, p.recoil - dt * 6);
+    p.aim = Math.max(0, p.aim - dt);
 
     // the green button enters Ammo-Country at its door, otherwise swaps guns
     const door = this.nearShopDoor;
@@ -602,6 +607,7 @@ export class World {
     p.fireCool = g.rate;
     p.muzzle = 0.06;
     p.recoil = g.family === "shotgun" || g.family === "launcher" ? 1 : g.family === "pistol" ? 0.6 : 0.35;
+    p.aim = 0.6; // the gun arm stays up for a moment after each shot
     if (g.family !== "flame") this.inv.owned[g.id].ammo -= 1;
     else this.inv.owned[g.id].ammo = Math.max(0, this.inv.owned[g.id].ammo - 1);
     const mx = p.x + p.facing * 48;
@@ -754,6 +760,7 @@ export class World {
     // the neck pumps while the body is still standing
     this.geysers.push({ x: d.x + d.dir * d.s.width * 0.5, h: 125 * big, dir: -dir * 0.3, life: 0.6, acc: 0 });
     this.bleed(headX, 125 * big, dir, 2.2);
+    this.sprays.push({ x: headX, h: 125 * big, dir, life: 0.32, max: 0.32, n: 34, seed: this.rand() * 1000, big: 2.6, radial: true });
     if (this.mode === "city" && this.rand() < 0.55) this.addDecal({ x: d.x + dir * (20 + this.rand() * 60), kind: "wall", size: 0.8 + this.rand() * 0.8, h: 70 + this.rand() * 110, rot: this.rand() * 6 });
   }
 

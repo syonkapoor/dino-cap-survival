@@ -432,3 +432,29 @@ test("rack prices climb in clear steps: each weapon at least $100 more than the 
   // and the gaps never shrink as you go up the rack
   for (let i = 2; i < prices.length; i++) assert.ok(prices[i] - prices[i - 1] >= prices[i - 1] - prices[i - 2], `gap shrinks at ${prices[i]}`);
 });
+
+test("Jungle Blitz runs on every map; City Grind is always the city", () => {
+  for (const map of ["jungle", "wasteland", "cherry", "cavern"]) {
+    const w = new World({ mode: "blitz", profile: baseProfile(), seed: 3, map });
+    assert.equal(w.map, map);
+    w.player.hp = w.player.maxHp = 1e9;
+    w.input.fire = true;
+    for (let i = 0; i < 600; i++) w.step(1 / 60);
+    assert.ok(w.kills >= 1, `${map}: ${w.kills} kills`);
+  }
+  assert.equal(new World({ mode: "city", profile: baseProfile(), map: "cavern" }).map, "city");
+  assert.equal(new World({ mode: "blitz", profile: baseProfile(), map: "nowhere" }).map, "jungle");
+});
+
+test("character look is saved and repaired", () => {
+  const p = normalizeProfile({ look: { char: "girl", skin: 2, hair: 1, outfit: 3, number: 23, shoes: 4, bow: 2 }, map: "cherry" });
+  assert.deepEqual(p.look, { char: "girl", skin: 2, hair: 1, outfit: 3, number: 23, shoes: 4, bow: 2 });
+  assert.equal(p.map, "cherry");
+  const bad = normalizeProfile({ look: { char: "alien", skin: 99, hair: -1, number: 400 }, map: "moon" });
+  assert.equal(bad.look.char, "kid");
+  assert.equal(bad.look.skin, 0);
+  assert.equal(bad.look.number, 8);
+  assert.equal(bad.map, "jungle");
+  // a girl's hair index past the kid's list is clamped for her own list
+  assert.equal(normalizeProfile({ look: { char: "girl", hair: 3 } }).look.hair, 0);
+});
