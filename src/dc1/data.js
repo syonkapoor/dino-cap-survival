@@ -1,16 +1,16 @@
-// Dino Cap (Triniti, 2010) data, reconstructed from gameplay footage.
-// See docs/FIDELITY-PLAN.md. Rack prices are a ladder: every weapon costs at
+// Raptor Street game data. Rack prices are a ladder: every weapon costs at
 // least $100 more than the one before it, and the steps widen toward the top
 // ($100, $150, $200, $300, $400). Damage, fire rate and ammo pack sizes are
 // remake balance values.
 
 export const GROUND_Y = 440; // feet line on the street, in logical pixels
 export const VIEW_H = 540;
-export const SAVE_KEY = "dino-cap-1-save";
+export const SAVE_KEY = "raptor-street-save";
+const OLD_SAVE_KEY = "dino-cap-1-save"; // saves from before the rename
 export const SAVE_VERSION = 1;
 
 // family drives firing behaviour and the ammo icon in the HUD badge.
-// unlock = the City Grind level from which the clerk hangs it on the rack.
+// unlock = the Street Sweep level from which the clerk hangs it on the rack.
 export const WEAPONS = [
   // melee (blue button). The club is what the kid starts with.
   { id: "club", name: "Spiked Club", family: "melee", damage: 9, rate: 0.34, reach: 185, knock: 300, price: 0, unlock: 1 },
@@ -70,11 +70,11 @@ export const dinoStats = (type, level = 1) => {
   };
 };
 
-// Storefronts seen along the City Grind street.
+// Storefronts seen along the Street Sweep street.
 export const BUILDINGS = {
   deli: { sign: "DELI", w: 420, loot: true },
   checks: { sign: "CHECKS CASHED", w: 520, loot: true },
-  ammo: { sign: "AMMO-COUNTRY", w: 520, shop: true },
+  ammo: { sign: "GUN BARN", w: 520, shop: true },
   laundro: { sign: "LAUNDR-O-MAT", w: 500, loot: true },
   jumbo: { sign: "JUMBO-MART", w: 500, loot: true },
   motel: { sign: "MOTEL", w: 360, loot: true },
@@ -84,7 +84,7 @@ export const BUILDINGS = {
 
 export const levelDuration = (level) => Math.min(120, 55 + level * 5);
 
-// Battlegrounds. City Grind is always the city street; Jungle Blitz can be
+// Battlegrounds. Street Sweep is always the city street; Survival can be
 // fought on any of the outdoor maps.
 export const MAPS = {
   jungle: { name: "JUNGLE", blurb: "Twisted vines, night bugs, nowhere to hide." },
@@ -97,7 +97,7 @@ export const BLITZ_MAPS = Object.keys(MAPS);
 // The character creator.
 export const CHARACTERS = {
   kid: { name: "KID", hairs: ["FLAT TOP", "AFRO", "BUZZ", "MOHAWK"] },
-  girl: { name: "WARRIOR GIRL", hairs: ["LONG", "BOB", "PONYTAIL"] },
+  girl: { name: "BRAWLER", hairs: ["LONG", "BOB", "PONYTAIL"] },
 };
 export const SKINS = ["#4f2f1d", "#6e4429", "#a8724b", "#e2b690"];
 export const OUTFITS = [
@@ -109,7 +109,7 @@ export const OUTFITS = [
 ];
 export const SHOES = ["#cf2c27", "#f4f1ea", "#1d1b22", "#3c78d8", "#f2c84b"];
 export const BOWS = ["#ffffff", "#e0322b", "#f28ab8", "#3c78d8"];
-export const baseLook = () => ({ char: "kid", skin: 0, hair: 0, outfit: 0, number: 8, shoes: 0, bow: 0 });
+export const baseLook = () => ({ char: "kid", skin: 0, hair: 0, outfit: 1, number: 23, shoes: 2, bow: 0 });
 export function normalizeLook(raw) {
   const l = { ...baseLook(), ...(raw && typeof raw === "object" ? raw : {}) };
   if (!CHARACTERS[l.char]) l.char = "kid";
@@ -119,7 +119,7 @@ export function normalizeLook(raw) {
   l.outfit = idx(l.outfit, OUTFITS.length);
   l.shoes = idx(l.shoes, SHOES.length);
   l.bow = idx(l.bow, BOWS.length);
-  l.number = Number.isInteger(l.number) && l.number >= 0 && l.number <= 99 ? l.number : 8;
+  l.number = Number.isInteger(l.number) && l.number >= 0 && l.number <= 99 ? l.number : 23;
   return l;
 }
 
@@ -163,7 +163,7 @@ export function normalizeProfile(raw) {
 
 export function loadProfile() {
   try {
-    return normalizeProfile(JSON.parse(localStorage.getItem(SAVE_KEY)));
+    return normalizeProfile(JSON.parse(localStorage.getItem(SAVE_KEY) ?? localStorage.getItem(OLD_SAVE_KEY)));
   } catch {
     return baseProfile();
   }

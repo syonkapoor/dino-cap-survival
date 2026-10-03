@@ -1,4 +1,4 @@
-// Canvas renderer for the Dino Cap world. Logical height is 540; logical width
+// Canvas renderer for the Raptor Street world. Logical height is 540; logical width
 // follows the screen's aspect so a phone in landscape is filled edge to edge.
 import { GROUND_Y, VIEW_H, WEAPON, MEDKIT, damageFor } from "./data.js";
 import { SHOP_SLOT, SHOP_RACK_X, SHOP_EXIT_X } from "./engine.js";
@@ -657,7 +657,7 @@ export class Renderer {
       drawCorpse(c, k.type, k.dir, k.burnt, slump * slump, this.t);
       c.restore();
     }
-    // drops (Jungle Blitz)
+    // drops (Survival)
     for (const d of world.drops) {
       const x = d.x - cam;
       c.save();
@@ -1237,7 +1237,7 @@ export class Renderer {
     }
   }
 
-  // ------------------------------------------------------------ Ammo-Country
+  // ------------------------------------------------------------ Gun Barn
   drawShop(world) {
     const c = this.c,
       W = this.W,

@@ -28,10 +28,10 @@ const KEYS = {
 
 export const ACHIEVEMENTS = [
   { id: "first", name: "FIRST BLOOD", text: "Cap your first dino", done: (p) => p.best.totalKills >= 1 },
-  { id: "sweeper", name: "STREET SWEEPER", text: "Reach City Grind level 5", done: (p) => p.best.cityLevel >= 5 },
-  { id: "grinder", name: "CITY GRINDER", text: "Reach City Grind level 10", done: (p) => p.best.cityLevel >= 10 },
-  { id: "survivor", name: "JUNGLE SURVIVOR", text: "Last 2 minutes in Jungle Blitz", done: (p) => p.best.blitzTime >= 120 },
-  { id: "butcher", name: "BLITZ BUTCHER", text: "100 kills in one Jungle Blitz", done: (p) => p.best.blitzKills >= 100 },
+  { id: "sweeper", name: "STREET SWEEPER", text: "Reach Street Sweep level 5", done: (p) => p.best.cityLevel >= 5 },
+  { id: "grinder", name: "STREET KING", text: "Reach Street Sweep level 10", done: (p) => p.best.cityLevel >= 10 },
+  { id: "survivor", name: "SURVIVOR", text: "Last 2 minutes in Survival", done: (p) => p.best.blitzTime >= 120 },
+  { id: "butcher", name: "BUTCHER", text: "100 kills in one Survival run", done: (p) => p.best.blitzKills >= 100 },
   { id: "exterminator", name: "EXTERMINATOR", text: "500 dinos capped in total", done: (p) => p.best.totalKills >= 500 },
   { id: "armed", name: "ARMED TO THE TEETH", text: "Own 10 weapons", done: (p) => Object.keys(p.owned).length >= 10 },
   { id: "heavy", name: "HEAVY METAL", text: "Buy the rocket launcher", done: (p) => !!p.owned.rocket },
@@ -63,22 +63,15 @@ function Skyline() {
 
 function Logo() {
   return (
-    <h1 className="dc-logo" aria-label="Dino Cap">
-      <span>DINO</span>
-      <svg viewBox="0 0 120 90" className="dc-skull" aria-hidden="true">
-        <path
-          d="M8 40 Q14 10 52 8 Q96 6 112 30 Q118 44 104 50 L96 52 L100 62 L88 60 L84 70 L72 64 L66 74 L56 66 L46 72 L40 62 Q18 62 8 40Z"
-          fill="#f1efe6"
-          stroke="#141218"
-          strokeWidth="5"
-          strokeLinejoin="round"
-        />
-        <ellipse cx="44" cy="30" rx="11" ry="10" fill="#141218" />
-        <path d="M70 26 L92 30" stroke="#141218" strokeWidth="5" strokeLinecap="round" />
-        <path d="M58 52 L60 60 M70 52 L71 60 M82 52 L82 59" stroke="#141218" strokeWidth="4" />
-        <path d="M14 46 Q26 54 40 52" stroke="#c4323a" strokeWidth="6" fill="none" strokeLinecap="round" />
+    <h1 className="dc-logo" aria-label="Raptor Street">
+      <span>RAPTOR</span>
+      <svg viewBox="0 -14 124 104" className="dc-skull" aria-hidden="true">
+        <path d="M6 44 Q10 14 46 10 Q90 6 112 26 Q120 40 106 48 L98 50 L102 60 L90 58 L86 68 L74 62 L68 72 L58 64 L48 70 L42 60 Q18 62 6 44Z" fill="#4a78c9" stroke="#141218" strokeWidth="5" strokeLinejoin="round" />
+        <path d="M36 26 L60 22 L66 34 L44 38Z" fill="#fff" stroke="#141218" strokeWidth="4" strokeLinejoin="round" />
+        <path d="M30 18 L70 26" stroke="#141218" strokeWidth="6" strokeLinecap="round" />
+        <path d="M24 12 L14 -6 L36 8Z" fill="#f6f3ea" stroke="#141218" strokeWidth="3" strokeLinejoin="round" />
       </svg>
-      <span>CAP</span>
+      <span>STREET</span>
     </h1>
   );
 }
@@ -323,7 +316,7 @@ export default function App() {
         if (green.current) {
           const near = !!w.nearShopDoor || w.atShopExit;
           green.current.dataset.pulse = near ? "1" : "0";
-          green.current.setAttribute("aria-label", near ? (w.scene === "shop" ? "Leave the shop" : "Enter Ammo-Country") : "Swap weapon");
+          green.current.setAttribute("aria-label", near ? (w.scene === "shop" ? "Leave the shop" : "Enter the Gun Barn") : "Swap weapon");
         }
       }
       if (w && ["playing", "paused", "dead"].includes(screenRef.current)) renderer.current.draw(w, screenRef.current === "playing" ? dt : 0);
@@ -457,7 +450,7 @@ export default function App() {
   return (
     <main className={`dc-root ${inGame ? "in-game" : ""}`}>
       <div className="dc-stage" ref={stage}>
-        <canvas ref={canvas} className="dc-canvas" aria-label="Dino Cap game" />
+        <canvas ref={canvas} className="dc-canvas" aria-label="Raptor Street game" />
       </div>
 
       {(screen === "loading" || screen === "title") && (
@@ -469,8 +462,8 @@ export default function App() {
             <>
               <Logo />
               <nav className="dc-menu" aria-label="Main menu">
-                <button onClick={() => setScreen("maps")}>JUNGLE BLITZ</button>
-                <button onClick={newCity}>CITY GRIND</button>
+                <button onClick={() => setScreen("maps")}>SURVIVAL</button>
+                <button onClick={newCity}>STREET SWEEP</button>
                 <button onClick={() => begin("city")} disabled={!canResume}>
                   RESUME
                 </button>
@@ -487,7 +480,7 @@ export default function App() {
               </nav>
               {canResume && (
                 <p className="dc-save">
-                  CITY GRIND · LEVEL {profile.level} · ${profile.cash}
+                  STREET SWEEP · LEVEL {profile.level} · ${profile.cash}
                 </p>
               )}
               <div className="dc-icons dc-icons-left">
@@ -509,11 +502,11 @@ export default function App() {
               {panel === "records" && (
                 <Panel title="RECORDS" onClose={() => setPanel(null)}>
                   <dl className="dc-stats">
-                    <dt>CITY GRIND BEST LEVEL</dt>
+                    <dt>STREET SWEEP BEST LEVEL</dt>
                     <dd>{profile.best.cityLevel}</dd>
-                    <dt>JUNGLE BLITZ MOST KILLS</dt>
+                    <dt>SURVIVAL MOST KILLS</dt>
                     <dd>{profile.best.blitzKills}</dd>
-                    <dt>JUNGLE BLITZ LONGEST</dt>
+                    <dt>SURVIVAL LONGEST</dt>
                     <dd>{fmt(profile.best.blitzTime)}</dd>
                     <dt>DINOS CAPPED, ALL TIME</dt>
                     <dd>{profile.best.totalKills}</dd>
@@ -532,7 +525,7 @@ export default function App() {
                       <tbody>
                         {profile.runs.map((r, i) => (
                           <tr key={i}>
-                            <td>{r.mode === "blitz" ? "JUNGLE" : "CITY"}</td>
+                            <td>{r.mode === "blitz" ? "SURVIVAL" : "STREET"}</td>
                             <td>{r.mode === "blitz" ? "—" : r.level}</td>
                             <td>{fmt(r.time)}</td>
                             <td>{r.kills}</td>
@@ -562,7 +555,7 @@ export default function App() {
               {panel === "help" && (
                 <Panel title="HOW TO PLAY" onClose={() => setPanel(null)}>
                   <div className="dc-help">
-                    <p>Prehistoric lizards are tearing the city apart. Everyone got eaten, so now it's just you, the dinos, and the salty-looking clerk at Ammo-Country.</p>
+                    <p>Prehistoric lizards are tearing the city apart. Everyone got eaten, so now it's just you, the dinos, and the grumpy clerk at the Gun Barn.</p>
                     <ul>
                       <li>
                         <b>◀ ▶</b> walk. You shoot the way you're facing. <kbd>A</kbd> <kbd>D</kbd> or arrows.
@@ -574,16 +567,16 @@ export default function App() {
                         <b className="b">BLUE</b> swing your club. It shakes off every dino biting you. <kbd>J</kbd>
                       </li>
                       <li>
-                        <b className="g">GREEN</b> swap guns, or walk into Ammo-Country at its door. <kbd>Q</kbd> / <kbd>W</kbd>
+                        <b className="g">GREEN</b> swap guns, or walk into the Gun Barn at its door. <kbd>Q</kbd> / <kbd>W</kbd>
                       </li>
                     </ul>
                     <p>
-                      <b>CITY GRIND:</b> clear each level, loot the lit doorways for cash and ammo, and spend it at Ammo-Country. Stand under a gun: orange buys or upgrades it, blue buys ammo. Walk out the left side to leave.
+                      <b>STREET SWEEP:</b> clear each level, loot the lit doorways for cash and ammo, and spend it at the Gun Barn. Stand under a gun: orange buys or upgrades it, blue buys ammo. Walk out the left side to leave.
                     </p>
                     <p>
-                      <b>JUNGLE BLITZ:</b> weapons, ammo and medicine fall from the sky. Hold out as long as you can.
+                      <b>SURVIVAL:</b> pick a map. Weapons, ammo and medicine fall from the sky. Hold out as long as you can.
                     </p>
-                    <p className="dc-credit">A fan remake of Dino Cap (Triniti Interactive, 2010). All art and sound here are original.</p>
+                    <p className="dc-credit">Raptor Street by Synergi Insights.</p>
                   </div>
                 </Panel>
               )}

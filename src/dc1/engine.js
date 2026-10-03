@@ -1,4 +1,4 @@
-// Dino Cap (2010) simulation. Pure: no DOM, no canvas, no audio. The app feeds
+// Raptor Street simulation. Pure: no DOM, no canvas, no audio. The app feeds
 // it input, calls step(dt), drains events for sound/UI and hands it to the
 // renderer. Everything gameplay-relevant is unit-tested in tests/dc1.test.js.
 import {
@@ -37,7 +37,7 @@ export function mulberry32(seed) {
   };
 }
 
-// A City Grind street: storefront chunks left to right. AMMO-COUNTRY is always
+// A Street Sweep street: storefront chunks left to right. GUN BARN is always
 // the second building (the footage reaches it within the first minute) and
 // recurs every five to seven buildings.
 export function makeStreet(level, rand, length = 14000) {
@@ -77,7 +77,7 @@ export function makeStreet(level, rand, length = 14000) {
 export class World {
   constructor({ mode = "city", profile, seed = 1, viewW = 960, map } = {}) {
     this.mode = mode;
-    // City Grind is always the city; Jungle Blitz is fought on the chosen map
+    // Street Sweep is always the city; Survival is fought on the chosen map
     this.map = mode === "city" ? "city" : MAPS[map] ? map : "jungle";
     this.profile = profile;
     this.rand = mulberry32(seed);
@@ -123,7 +123,7 @@ export class World {
       aim: 0,
     };
     if (mode === "blitz") {
-      // Jungle Blitz: its own loadout, weapons and ammo fall from the sky.
+      // Survival: its own loadout, weapons and ammo fall from the sky.
       this.inv = {
         owned: { club: { lv: profile.owned.club?.lv || 1, ammo: 0 }, usp: { lv: profile.owned.usp?.lv || 1, ammo: 999 } },
         gun: "usp",
@@ -314,7 +314,7 @@ export class World {
     p.recoil = Math.max(0, p.recoil - dt * 6);
     p.aim = Math.max(0, p.aim - dt);
 
-    // the green button enters Ammo-Country at its door, otherwise swaps guns
+    // the green button enters Gun Barn at its door, otherwise swaps guns
     const door = this.nearShopDoor;
     if (pressed("act") || (pressed("green") && door)) {
       if (door) return this.enterShop(door.door);
@@ -794,7 +794,7 @@ export class World {
     this.emit("save");
   }
 
-  // ---------- Ammo-Country: a room you walk along, not a menu ----------
+  // ---------- Gun Barn: a room you walk along, not a menu ----------
   shopItems() {
     const level = this.profile.level;
     const open = WEAPONS.filter((w) => w.price > 0 && w.unlock <= level).sort((a, b) => a.price - b.price);

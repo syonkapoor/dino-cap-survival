@@ -1,7 +1,7 @@
 // Hand-inked look, drawn in code: thick black outlines, flat fills, slightly
 // irregular curves. Every function draws with its origin at the feet (or the
 // object's base) so the renderer only translates. Original art: nothing here
-// is traced from or copies Triniti's sprites.
+// is traced from or copies another game's sprites.
 import { WEAPON, SKINS, OUTFITS, SHOES, BOWS, baseLook } from "./data.js";
 
 export const INK = "#141218";
@@ -357,8 +357,8 @@ export function drawAmmoIcon(c, family, x, y, s = 1) {
 
 // ---------------------------------------------------------------- the characters
 // Chibi proportions from the footage: a big round head, wide eyes that look up,
-// heavy outlines. The KID wears a numbered jersey; the WARRIOR GIRL has long
-// black hair, a bow, a dress and swings a wooden "10t" hammer.
+// heavy outlines. The KID wears a numbered jersey; the BRAWLER has long
+// black hair, a bow, a dress and swings a wooden "TON" hammer.
 
 const shade = (hex, f = 0.78) => {
   const n = parseInt(hex.slice(1), 16);
@@ -382,7 +382,7 @@ function splat(c, x, y, r, seed) {
   c.fill();
 }
 
-// the girl's melee weapon: a wooden barrel hammer stencilled "10t"
+// the girl's melee weapon: a wooden barrel hammer stencilled "TON"
 export function drawHammer(c, size = 1) {
   c.save();
   c.scale(size, size);
@@ -398,7 +398,7 @@ export function drawHammer(c, size = 1) {
   c.textAlign = "center";
   c.textBaseline = "middle";
   c.fillStyle = "#3b1d0e";
-  c.fillText("10t", 0, -67);
+  c.fillText("TON", 0, -67);
   c.restore();
 }
 

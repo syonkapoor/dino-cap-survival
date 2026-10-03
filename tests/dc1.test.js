@@ -181,7 +181,7 @@ test("doorway loot is collected once and the doorway goes dark", () => {
   assert.equal(w.profile.cash, cash + b.door.loot.amount);
 });
 
-test("street generation: Ammo-Country is the second building and recurs", () => {
+test("street generation: Gun Barn is the second building and recurs", () => {
   const s = makeStreet(1, mulberry32(3));
   assert.equal(s.buildings[1].type, "ammo");
   const shops = s.buildings.filter((b) => b.type === "ammo");
@@ -208,7 +208,7 @@ test("city level flow: LEVEL card, play, LEVEL CLEAR, next level with health ref
   assert.equal(w.player.hp, w.player.maxHp);
 });
 
-test("Ammo-Country: enter at the door, buy, upgrade, ammo, med kit, refuse when broke, leave where you came in", () => {
+test("Gun Barn: enter at the door, buy, upgrade, ammo, med kit, refuse when broke, leave where you came in", () => {
   const w = city({ cash: 2000 });
   w.dinos = [];
   w.spawnTimer = 1e9;
@@ -308,7 +308,7 @@ test("an empty gun falls back to the melee swing", () => {
   assert.ok(w.events.some((e) => e.type === "melee"));
 });
 
-test("Jungle Blitz: crates fall from the sky and are picked up; death reports the run", () => {
+test("Survival: crates fall from the sky and are picked up; death reports the run", () => {
   const prof = baseProfile();
   const w = new World({ mode: "blitz", profile: prof, seed: 11 });
   assert.equal(w.inv.owned.usp.ammo, 999);
@@ -433,7 +433,7 @@ test("rack prices climb in clear steps: each weapon at least $100 more than the 
   for (let i = 2; i < prices.length; i++) assert.ok(prices[i] - prices[i - 1] >= prices[i - 1] - prices[i - 2], `gap shrinks at ${prices[i]}`);
 });
 
-test("Jungle Blitz runs on every map; City Grind is always the city", () => {
+test("Survival runs on every map; Street Sweep is always the city", () => {
   for (const map of ["jungle", "wasteland", "cherry", "cavern"]) {
     const w = new World({ mode: "blitz", profile: baseProfile(), seed: 3, map });
     assert.equal(w.map, map);
@@ -453,7 +453,7 @@ test("character look is saved and repaired", () => {
   const bad = normalizeProfile({ look: { char: "alien", skin: 99, hair: -1, number: 400 }, map: "moon" });
   assert.equal(bad.look.char, "kid");
   assert.equal(bad.look.skin, 0);
-  assert.equal(bad.look.number, 8);
+  assert.equal(bad.look.number, 23);
   assert.equal(bad.map, "jungle");
   // a girl's hair index past the kid's list is clamped for her own list
   assert.equal(normalizeProfile({ look: { char: "girl", hair: 3 } }).look.hair, 0);
