@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Game, missionForDay } from "../src/game.js";
-import { WEAPONS, normalizeProfile } from "../src/data.js";
+import { Game, missionForDay } from "../src/legacy/game.js";
+import { WEAPONS, normalizeProfile } from "../src/legacy/data.js";
 const drawing = new Proxy(
   {},
   {
