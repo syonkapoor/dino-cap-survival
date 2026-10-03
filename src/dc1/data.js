@@ -1,7 +1,8 @@
 // Dino Cap (Triniti, 2010) data, reconstructed from gameplay footage.
-// See docs/FIDELITY-PLAN.md. Prices on the Ammo-Country rack follow what the
-// footage shows ($300 revolver, $350 lever-action, then $550 up to $2,500 and
-// beyond); damage, fire rate and ammo pack sizes are remake balance values.
+// See docs/FIDELITY-PLAN.md. Rack prices are a ladder: every weapon costs at
+// least $100 more than the one before it, and the steps widen toward the top
+// ($100, $150, $200, $300, $400). Damage, fire rate and ammo pack sizes are
+// remake balance values.
 
 export const GROUND_Y = 440; // feet line on the street, in logical pixels
 export const VIEW_H = 540;
@@ -13,31 +14,31 @@ export const SAVE_VERSION = 1;
 export const WEAPONS = [
   // melee (blue button). The club is what the kid starts with.
   { id: "club", name: "Spiked Club", family: "melee", damage: 9, rate: 0.34, reach: 185, knock: 300, price: 0, unlock: 1 },
-  { id: "crowbar", name: "Crowbar", family: "melee", damage: 15, rate: 0.32, reach: 192, knock: 340, price: 650, unlock: 2 },
-  { id: "axe", name: "Fireman's Axe", family: "melee", damage: 28, rate: 0.4, reach: 200, knock: 380, price: 2000, unlock: 6 },
-  { id: "chainsaw", name: "Chainsaw", family: "melee", damage: 9, rate: 0.07, reach: 195, knock: 140, price: 6000, unlock: 9 },
+  { id: "crowbar", name: "Crowbar", family: "melee", damage: 15, rate: 0.32, reach: 192, knock: 340, price: 600, unlock: 2 },
+  { id: "axe", name: "Fireman's Axe", family: "melee", damage: 28, rate: 0.4, reach: 200, knock: 380, price: 1500, unlock: 6 },
+  { id: "chainsaw", name: "Chainsaw", family: "melee", damage: 9, rate: 0.07, reach: 195, knock: 140, price: 4200, unlock: 9 },
   // guns (orange button)
   { id: "usp", name: "USP .45", family: "pistol", damage: 10, rate: 0.3, range: 720, price: 0, unlock: 1, ammoPack: 60, ammoPrice: 40, startAmmo: 120 },
-  { id: "magnum", name: ".44 Magnum", family: "pistol", damage: 26, rate: 0.5, range: 760, pierce: 1, price: 300, unlock: 1, ammoPack: 30, ammoPrice: 60, startAmmo: 36 },
-  { id: "m1887", name: "Model 1887", family: "shotgun", damage: 9, pellets: 5, rate: 0.75, range: 380, price: 350, unlock: 1, ammoPack: 16, ammoPrice: 70, startAmmo: 22 },
-  { id: "m9", name: "M9", family: "pistol", damage: 13, rate: 0.2, range: 720, price: 550, unlock: 2, ammoPack: 80, ammoPrice: 60, startAmmo: 120 },
-  { id: "tec9", name: "TEC-DC9", family: "smg", damage: 7, rate: 0.085, range: 600, price: 600, unlock: 2, ammoPack: 150, ammoPrice: 80, startAmmo: 200 },
-  { id: "mp5k", name: "MP5K", family: "smg", damage: 9, rate: 0.08, range: 650, price: 800, unlock: 3, ammoPack: 150, ammoPrice: 100, startAmmo: 200 },
-  { id: "deagle", name: "Desert Eagle", family: "pistol", damage: 38, rate: 0.45, range: 800, pierce: 1, price: 900, unlock: 3, ammoPack: 30, ammoPrice: 110, startAmmo: 40 },
-  { id: "spas12", name: "SPAS-12", family: "shotgun", damage: 12, pellets: 6, rate: 0.6, range: 400, price: 1000, unlock: 3, ammoPack: 20, ammoPrice: 120, startAmmo: 30 },
-  { id: "ump45", name: "UMP45", family: "smg", damage: 12, rate: 0.09, range: 680, price: 1200, unlock: 4, ammoPack: 150, ammoPrice: 140, startAmmo: 200 },
-  { id: "m1014", name: "M1014", family: "shotgun", damage: 13, pellets: 6, rate: 0.38, range: 400, price: 1500, unlock: 4, ammoPack: 24, ammoPrice: 160, startAmmo: 36 },
-  { id: "ak47", name: "AK47", family: "rifle", damage: 16, rate: 0.11, range: 900, price: 1700, unlock: 4, ammoPack: 120, ammoPrice: 180, startAmmo: 180 },
-  { id: "m16", name: "M16", family: "rifle", damage: 18, rate: 0.1, range: 900, price: 2200, unlock: 5, ammoPack: 120, ammoPrice: 200, startAmmo: 180 },
-  { id: "grenade", name: "Grenade Launcher", family: "launcher", damage: 70, rate: 0.8, splash: 120, speed: 620, arc: true, price: 2500, unlock: 5, ammoPack: 10, ammoPrice: 260, startAmmo: 12 },
-  { id: "kriss", name: "KRISS", family: "smg", damage: 13, rate: 0.055, range: 700, price: 2800, unlock: 6, ammoPack: 200, ammoPrice: 260, startAmmo: 240 },
-  { id: "scarh", name: "SCAR-H", family: "rifle", damage: 30, rate: 0.13, range: 950, pierce: 1, price: 3200, unlock: 6, ammoPack: 100, ammoPrice: 300, startAmmo: 140 },
-  { id: "aa12", name: "AA-12", family: "shotgun", damage: 14, pellets: 6, rate: 0.2, range: 420, price: 3800, unlock: 7, ammoPack: 40, ammoPrice: 340, startAmmo: 60 },
-  { id: "saw", name: "Buzz-Saw Launcher", family: "saw", damage: 45, rate: 0.5, speed: 760, pierce: 99, price: 4500, unlock: 7, ammoPack: 20, ammoPrice: 380, startAmmo: 30 },
-  { id: "flame", name: "Flamethrower", family: "flame", damage: 7, rate: 0.06, range: 230, price: 5000, unlock: 8, ammoPack: 200, ammoPrice: 420, startAmmo: 300 },
-  { id: "rocket", name: "Rocket Launcher", family: "launcher", damage: 130, rate: 0.95, splash: 150, speed: 820, price: 5500, unlock: 8, ammoPack: 8, ammoPrice: 480, startAmmo: 10 },
-  { id: "m61", name: "M61", family: "rifle", damage: 14, rate: 0.04, range: 900, price: 6500, unlock: 8, ammoPack: 300, ammoPrice: 520, startAmmo: 400 },
-  { id: "laser", name: "Laser Gun", family: "laser", damage: 60, rate: 0.55, range: 1100, pierce: 99, price: 9000, unlock: 9, ammoPack: 30, ammoPrice: 700, startAmmo: 40 },
+  { id: "magnum", name: ".44 Magnum", family: "pistol", damage: 26, rate: 0.5, range: 760, pierce: 1, price: 200, unlock: 1, ammoPack: 30, ammoPrice: 60, startAmmo: 36 },
+  { id: "m1887", name: "Model 1887", family: "shotgun", damage: 9, pellets: 5, rate: 0.75, range: 380, price: 300, unlock: 1, ammoPack: 16, ammoPrice: 70, startAmmo: 22 },
+  { id: "m9", name: "M9", family: "pistol", damage: 13, rate: 0.2, range: 720, price: 400, unlock: 2, ammoPack: 80, ammoPrice: 60, startAmmo: 120 },
+  { id: "tec9", name: "TEC-DC9", family: "smg", damage: 7, rate: 0.085, range: 600, price: 500, unlock: 2, ammoPack: 150, ammoPrice: 80, startAmmo: 200 },
+  { id: "mp5k", name: "MP5K", family: "smg", damage: 9, rate: 0.08, range: 650, price: 700, unlock: 3, ammoPack: 150, ammoPrice: 100, startAmmo: 200 },
+  { id: "deagle", name: "Desert Eagle", family: "pistol", damage: 38, rate: 0.45, range: 800, pierce: 1, price: 800, unlock: 3, ammoPack: 30, ammoPrice: 110, startAmmo: 40 },
+  { id: "spas12", name: "SPAS-12", family: "shotgun", damage: 12, pellets: 6, rate: 0.6, range: 400, price: 900, unlock: 3, ammoPack: 20, ammoPrice: 120, startAmmo: 30 },
+  { id: "ump45", name: "UMP45", family: "smg", damage: 12, rate: 0.09, range: 680, price: 1050, unlock: 4, ammoPack: 150, ammoPrice: 140, startAmmo: 200 },
+  { id: "m1014", name: "M1014", family: "shotgun", damage: 13, pellets: 6, rate: 0.38, range: 400, price: 1200, unlock: 4, ammoPack: 24, ammoPrice: 160, startAmmo: 36 },
+  { id: "ak47", name: "AK47", family: "rifle", damage: 16, rate: 0.11, range: 900, price: 1350, unlock: 4, ammoPack: 120, ammoPrice: 180, startAmmo: 180 },
+  { id: "m16", name: "M16", family: "rifle", damage: 18, rate: 0.1, range: 900, price: 1700, unlock: 5, ammoPack: 120, ammoPrice: 200, startAmmo: 180 },
+  { id: "grenade", name: "Grenade Launcher", family: "launcher", damage: 70, rate: 0.8, splash: 120, speed: 620, arc: true, price: 1900, unlock: 5, ammoPack: 10, ammoPrice: 260, startAmmo: 12 },
+  { id: "kriss", name: "KRISS", family: "smg", damage: 13, rate: 0.055, range: 700, price: 2100, unlock: 6, ammoPack: 200, ammoPrice: 260, startAmmo: 240 },
+  { id: "scarh", name: "SCAR-H", family: "rifle", damage: 30, rate: 0.13, range: 950, pierce: 1, price: 2400, unlock: 6, ammoPack: 100, ammoPrice: 300, startAmmo: 140 },
+  { id: "aa12", name: "AA-12", family: "shotgun", damage: 14, pellets: 6, rate: 0.2, range: 420, price: 2700, unlock: 7, ammoPack: 40, ammoPrice: 340, startAmmo: 60 },
+  { id: "saw", name: "Buzz-Saw Launcher", family: "saw", damage: 45, rate: 0.5, speed: 760, pierce: 99, price: 3000, unlock: 7, ammoPack: 20, ammoPrice: 380, startAmmo: 30 },
+  { id: "flame", name: "Flamethrower", family: "flame", damage: 7, rate: 0.06, range: 230, price: 3400, unlock: 8, ammoPack: 200, ammoPrice: 420, startAmmo: 300 },
+  { id: "rocket", name: "Rocket Launcher", family: "launcher", damage: 130, rate: 0.95, splash: 150, speed: 820, price: 3800, unlock: 8, ammoPack: 8, ammoPrice: 480, startAmmo: 10 },
+  { id: "m61", name: "M61", family: "rifle", damage: 14, rate: 0.04, range: 900, price: 4600, unlock: 8, ammoPack: 300, ammoPrice: 520, startAmmo: 400 },
+  { id: "laser", name: "Laser Gun", family: "laser", damage: 60, rate: 0.55, range: 1100, pierce: 99, price: 5400, unlock: 9, ammoPack: 30, ammoPrice: 700, startAmmo: 40 },
 ];
 export const WEAPON = Object.fromEntries(WEAPONS.map((w) => [w.id, w]));
 export const isMelee = (id) => WEAPON[id]?.family === "melee";

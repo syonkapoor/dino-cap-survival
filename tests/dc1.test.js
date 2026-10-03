@@ -230,7 +230,7 @@ test("Ammo-Country: enter at the door, buy, upgrade, ammo, med kit, refuse when 
   w.step(1 / 60); // held, must not buy twice
   w.input.fire = false;
   w.step(1 / 60);
-  assert.equal(w.profile.cash, 2000 - 300);
+  assert.equal(w.profile.cash, 2000 - WEAPON.magnum.price);
   assert.ok(w.profile.owned.magnum);
   assert.equal(w.profile.gun, "magnum");
   const up = upgradePrice("magnum", 1);
@@ -240,7 +240,7 @@ test("Ammo-Country: enter at the door, buy, upgrade, ammo, med kit, refuse when 
   w.input.fire = false;
   w.step(1 / 60);
   assert.equal(w.profile.owned.magnum.lv, 2);
-  assert.equal(w.profile.cash, 1700 - up);
+  assert.equal(w.profile.cash, 2000 - WEAPON.magnum.price - up);
   const ammo0 = w.profile.owned.magnum.ammo;
   w.input.melee = true;
   w.step(1 / 60);
@@ -280,7 +280,7 @@ test("the rack grows with the level", () => {
   assert.ok(n(late) > n(early));
   assert.equal(n(late), WEAPONS.filter((w) => w.price > 0).length);
   const prices = early.shopItems().filter((i) => i.kind === "weapon").map((i) => WEAPON[i.id].price);
-  assert.deepEqual(prices.slice(0, 2), [300, 350], "revolver $300, lever-action $350");
+  assert.deepEqual(prices.slice(0, 2), [200, 300], "revolver first, then the lever-action");
 });
 
 test("green button swaps guns away from the shop door", () => {
@@ -424,4 +424,11 @@ test("bite, lunge and kill events keep their own name (sound depends on it)", ()
   const types = new Set(w.drainEvents().map((e) => e.type));
   for (const t of ["lunge", "bite", "kill"]) assert.ok(types.has(t), `${t} missing from ${[...types]}`);
   for (const e of w.events) assert.ok(!["raptor", "horned", "brute"].includes(e.type));
+});
+
+test("rack prices climb in clear steps: each weapon at least $100 more than the last", () => {
+  const prices = WEAPONS.filter((w) => w.price > 0).map((w) => w.price).sort((a, b) => a - b);
+  for (let i = 1; i < prices.length; i++) assert.ok(prices[i] - prices[i - 1] >= 100, `${prices[i - 1]} -> ${prices[i]}`);
+  // and the gaps never shrink as you go up the rack
+  for (let i = 2; i < prices.length; i++) assert.ok(prices[i] - prices[i - 1] >= prices[i - 1] - prices[i - 2], `gap shrinks at ${prices[i]}`);
 });
